@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yoni Tech</title>
+<meta name="description" content="Yoni Tech - asistente de inteligencia artificial, versión web accesible.">
+<meta name="theme-color" content="#1A1A1A">
+<style>
+  :root{
+    --bg:#1A1A1A; --bg-chat:#000000; --panel:#232323; --panel2:#2b2b2b;
+    --border:#444444; --texto:#FFFFFF; --texto-tenue:#B0B0B0; --hint:#888888;
+    --naranja:#FF9800; --verde:#4CAF50; --verde-osc:#2E7D32; --rojo:#F44336;
+    --morado:#9C27B0; --indigo:#3F51B5; --teal:#009688; --azul-info:#03A9F4;
+    --gris:#607D8B; --cyan:#00BCD4; --violeta:#673AB7; --deep-orange:#FF5722;
+    --code-bg:#263238; --code-bg2:#37474F; --oro:#FFD700; --input-bg:#FFFFFF;
+    --focus:#64B5F6; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--texto);
+    font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  a{color:#8AB4F8;}
+  .skip-link{
+    position:absolute; left:-999px; top:0; background:var(--naranja); color:#000;
+    padding:10px 16px; z-index:1000; font-weight:bold; border-radius:0 0 8px 0;
+  }
+  .skip-link:focus{ left:0; }
+  button{ font-family:inherit; cursor:pointer; border:none; border-radius:8px; }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible{
+    outline:3px solid var(--focus); outline-offset:2px;
+  }
+  #app{ display:flex; flex-direction:column; flex:1; min-height:100vh; padding:8px; gap:6px; max-width:900px; margin:0 auto; width:100%; }
+  header.cabecera{ display:flex; align-items:center; gap:8px; }
+  header.cabecera h1{ flex:1; font-size:1.15rem; color:var(--naranja); font-weight:700; margin:0; }
+  .btn{ color:#fff; padding:10px 14px; font-size:0.9rem; font-weight:600; background:var(--gris); }
+  .btn:hover{ filter:brightness(1.12); }
+  .btn:active{ filter:brightness(0.9); }
+  .btn-salir{ background:var(--rojo); }
+  .fila-botones{ display:flex; gap:8px; }
+  .fila-botones .btn{ flex:1; }
+  .btn-nuevo-chat{ background:var(--morado); }
+  .btn-sidebar{ background:var(--naranja); }
+  .selectores{ display:flex; flex-direction:column; gap:6px; }
+  .fila-selector{ display:flex; align-items:center; gap:8px; }
+  .fila-selector label{ min-width:64px; font-size:0.85rem; color:#fff; }
+  select{
+    flex:1; background:#333; color:#fff; border:1px solid var(--border);
+    border-radius:8px; padding:9px 8px; font-size:0.9rem;
+  }
+  .btn-recargar{ background:var(--naranja); padding:9px 10px; font-size:0.78rem; white-space:nowrap; }
+  hr.sep{ border:none; border-top:1px solid var(--border); margin:4px 0; }
+  main#chat-wrap{
+    flex:1; display:flex; flex-direction:column; background:var(--bg-chat);
+    border-radius:var(--radius); overflow:hidden; min-height:200px;
+  }
+  #conversacion{
+    flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:12px;
+    scroll-behavior:smooth;
+  }
+  .bienvenida{ color:var(--texto-tenue); font-size:0.92rem; line-height:1.5; padding:14px; border:1px dashed var(--border); border-radius:var(--radius); }
+  .msg{ border-radius:var(--radius); padding:12px 14px; max-width:100%; }
+  .msg-usuario{ background:var(--verde-osc); align-self:flex-end; }
+  .msg-ia{ background:var(--panel); }
+  .msg-cabecera{ font-size:0.78rem; font-weight:700; margin-bottom:6px; opacity:0.9; letter-spacing:.02em; }
+  .msg-usuario .msg-cabecera{ color:#E8F5E9; }
+  .msg-ia .msg-cabecera{ color:var(--naranja); }
+  .msg-contenido{ font-size:1rem; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
+  .msg-contenido a{ word-break:break-all; }
+  .msg-separador{ border:none; border-top:1px solid var(--border); margin:10px 0; }
+  .bloque-codigo{ background:var(--code-bg); border-radius:8px; padding:10px; margin:6px 0; }
+  .bloque-codigo-header{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .bloque-codigo-lang{ color:var(--oro); font-weight:700; font-size:0.8rem; flex:1; }
+  .btn-copiar-codigo{ background:var(--verde); color:#fff; font-size:0.75rem; padding:6px 10px; }
+  .bloque-codigo pre{
+    background:var(--code-bg2); color:#fff; padding:8px; border-radius:6px; margin:0;
+    font-family:"Cascadia Code","Consolas",monospace; font-size:0.82rem; overflow-x:auto; white-space:pre-wrap; word-wrap:break-word;
+  }
+  .indicador-escribiendo{ color:var(--texto-tenue); font-style:italic; font-size:0.9rem; padding:6px 4px; }
+  .musica-card{ background:var(--panel2); border-radius:8px; padding:10px; margin-top:6px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .musica-card .btn{ background:var(--rojo); font-size:0.8rem; padding:8px 10px; }
+  #adjuntos-bar{ display:none; flex-wrap:wrap; gap:6px; background:var(--panel2); border-radius:8px; padding:8px; }
+  .chip-adjunto{ background:#444; border-radius:16px; padding:6px 10px; display:flex; align-items:center; gap:8px; font-size:0.82rem; }
+  .chip-adjunto button{ background:transparent; color:#fff; font-weight:bold; padding:0 4px; }
+  form#fila-inferior{ display:flex; gap:8px; align-items:flex-end; }
+  #edit_pregunta{
+    flex:1; background:var(--input-bg); color:#000; border:none; border-radius:10px;
+    padding:12px; font-size:1rem; min-height:44px; max-height:160px; resize:vertical; font-family:inherit;
+  }
+  #edit_pregunta::placeholder{ color:var(--hint); }
+  .btn-mic{ background:var(--indigo); padding:12px; font-size:1.05rem; }
+  .btn-mic.escuchando{ background:var(--rojo); animation:pulso 1s infinite; }
+  @keyframes pulso{ 0%{opacity:1;} 50%{opacity:0.55;} 100%{opacity:1;} }
+  .btn-mas{ background:var(--gris); padding:12px 14px; }
+  .btn-enviar{ background:var(--verde); color:#fff; font-weight:700; padding:12px 16px; }
+  footer.creditos{ text-align:center; font-size:0.72rem; color:#666; padding:4px 0 2px; }
+
+  /* Overlay / diálogos */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center;
+    justify-content:center; z-index:500; padding:14px;
+  }
+  .overlay[hidden]{ display:none; }
+  .dialogo{
+    background:var(--panel); border-radius:14px; width:100%; max-width:440px; max-height:88vh;
+    overflow-y:auto; padding:18px; border:1px solid var(--border);
+  }
+  .dialogo h2{ margin:0 0 12px; color:var(--naranja); font-size:1.1rem; }
+  .dialogo p.ayuda{ color:var(--texto-tenue); font-size:0.85rem; margin-top:-6px; margin-bottom:12px; }
+  .dialogo .cerrar-x{ float:right; background:transparent; color:#fff; font-size:1.2rem; padding:4px 8px; }
+  .campo{ margin-bottom:12px; display:flex; flex-direction:column; gap:5px; }
+  .campo label{ font-size:0.85rem; color:#ddd; }
+  .campo input[type=text], .campo input[type=password], .campo input[type=number], .campo textarea, .campo select{
+    background:#fff; color:#000; border:none; border-radius:8px; padding:10px; font-size:0.95rem; font-family:inherit;
+  }
+  .campo textarea{ min-height:70px; resize:vertical; }
+  .campo small{ color:var(--texto-tenue); }
+  .menu-lista{ display:flex; flex-direction:column; gap:8px; }
+  .menu-lista button{ padding:14px; text-align:left; color:#fff; font-size:0.95rem; font-weight:600; }
+  .fila-2{ display:flex; gap:8px; }
+  .fila-2 button, .fila-2 .btn{ flex:1; }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; }
+  .switch{ position:relative; display:inline-block; width:46px; height:26px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider-tog{ position:absolute; cursor:pointer; inset:0; background:#666; border-radius:26px; transition:.2s; }
+  .slider-tog:before{ position:absolute; content:""; height:20px; width:20px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+  input:checked + .slider-tog{ background:var(--verde); }
+  input:checked + .slider-tog:before{ transform:translateX(20px); }
+  .lista-notas, .lista-comandos, .lista-claves{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .item-nota, .item-comando, .item-clave{
+    background:var(--panel2); border-radius:8px; padding:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .item-nota .info, .item-comando .info, .item-clave .info{ flex:1; font-size:0.85rem; overflow:hidden; }
+  .item-nota .titulo, .item-comando .titulo{ font-weight:700; display:block; }
+  .mini-btn{ background:#555; color:#fff; padding:6px 9px; font-size:0.78rem; }
+  .mini-btn.rojo{ background:var(--rojo); }
+  .toast-region{ position:fixed; left:0; right:0; bottom:90px; display:flex; flex-direction:column; align-items:center; gap:6px; z-index:900; pointer-events:none; }
+  .toast{
+    background:#222; color:#fff; padding:10px 16px; border-radius:20px; font-size:0.85rem;
+    border:1px solid #555; max-width:90vw; text-align:center; box-shadow:0 3px 10px rgba(0,0,0,.4);
+  }
+  .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  @media (max-width:480px){
+    header.cabecera h1{ font-size:1rem; }
+    .fila-selector label{ min-width:54px; font-size:0.78rem; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#edit_pregunta">Saltar a la caja de texto</a>
+
+<div id="app">
+  <header class="cabecera">
+    <h1 id="txt_titulo">Yoni Tech - General</h1>
+    <button class="btn btn-salir" id="btn_salir" aria-label="Salir / limpiar sesión visual">Salir</button>
+  </header>
+
+  <div class="fila-botones">
+    <button class="btn btn-nuevo-chat" id="btn_nuevo_chat">Nuevo Chat</button>
+    <button class="btn btn-sidebar" id="btn_mas_opciones" aria-haspopup="dialog">Abrir barra lateral</button>
+  </div>
+
+  <div class="selectores">
+    <div class="fila-selector">
+      <label for="sp_servicio">Servicio:</label>
+      <select id="sp_servicio">
+        <option value="Mistral AI">Mistral AI</option>
+        <option value="Morph">Morph</option>
+      </select>
+      <button class="btn btn-recargar" id="btn_recargar_modelos">Recargar</button>
+    </div>
+    <div class="fila-selector">
+      <label for="sp_modelo">Modelo:</label>
+      <select id="sp_modelo"></select>
+    </div>
+  </div>
+
+  <hr class="sep">
+
+  <main id="chat-wrap">
+    <div id="conversacion" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación con Yoni Tech">
+      <div class="bienvenida" id="bienvenida">
+        Hola, soy <strong>Yoni Tech</strong> 👋 — esta es mi versión web. Antes de empezar, abre
+        <strong>«Abrir barra lateral → Gestionar APIs»</strong> para poner tu clave de Mistral AI o Morph.
+        Puedo hablarte por voz, escucharte por dictado, leer archivos de texto que adjuntes, guardarte notas,
+        darte el clima real de cualquier ciudad, y más. Escribe abajo o pulsa el micrófono para empezar.
+      </div>
+    </div>
+  </main>
+
+  <div id="adjuntos-bar" aria-label="Archivos adjuntos"></div>
+
+  <form id="fila-inferior" autocomplete="off">
+    <label for="edit_pregunta" class="visually-hidden">Escribe tu pregunta</label>
+    <textarea id="edit_pregunta" placeholder="Escribe tu pregunta aquí... (Enter envía, Shift+Enter salto de línea)" rows="1"></textarea>
+    <button type="button" class="btn btn-mic" id="btn_dictado" aria-pressed="false" aria-label="Activar dictado por voz">🎙️</button>
+    <button type="button" class="btn btn-mas" id="btn_mas" aria-haspopup="dialog">Más</button>
+    <button type="submit" class="btn btn-enviar" id="btn_enviar">Enviar</button>
+  </form>
+  <footer class="creditos">Yoni Tech · versión web · creado originalmente por Jonathan (Cuba) · adaptado para navegador</footer>
+</div>
+
+<div class="toast-region" id="toast-region" aria-live="assertive"></div>
+<input type="file" id="input_archivo" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.js,.ts,.py,.html,.htm,.css,.log,.xml,.yml,.yaml,.ini,.java,.c,.cpp,.lua,.sh">
+
+<!-- ===================== DIALOGOS ===================== -->
+
+<div class="overlay" id="ov-menu" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-menu">
+    <button class="cerrar-x" data-cerrar="ov-menu" aria-label="Cerrar menú">✕</button>
+    <h2 id="tit-menu">MENÚ</h2>
+    <div class="menu-lista">
+      <button style="background:var(--teal)" data-accion="cambiar-nombre">Cambiar nombre</button>
+      <button style="background:var(--indigo)" data-accion="editar-perfil">Editar perfil</button>
+      <button style="background:#FF9800" data-accion="gestionar-api">Gestionar APIs</button>
+      <button style="background:var(--deep-orange)" data-accion="cambiar-tokens">Cambiar tokens</button>
+      <button style="background:var(--violeta)" data-accion="configurar-voz">Configurar voz</button>
+      <button style="background:var(--cyan)" data-accion="comandos">Comandos personalizados</button>
+      <button style="background:#455A64" data-accion="notas">Mis notas</button>
+      <button style="background:#455A64" data-accion="dispositivo">Info del dispositivo</button>
+      <button style="background:var(--rojo)" data-cerrar="ov-menu">Cerrar barra lateral</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-mas" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-mas">
+    <button class="cerrar-x" data-cerrar="ov-mas" aria-label="Cerrar">✕</button>
+    <h2 id="tit-mas">Más opciones</h2>
+    <div class="menu-lista">
+      <button style="background:var(--morado)" id="op-adjuntar">📎 Adjuntar archivo</button>
+      <button style="background:var(--indigo)" id="op-dictado">🎙️ Dictado</button>
+      <button style="background:var(--verde)" id="op-hablar">🔊 Leer última respuesta en voz alta</button>
+      <button style="background:#455A64" id="op-detener-voz">🔇 Detener voz</button>
+      <button style="background:var(--azul-info)" id="op-hora">🕐 Decir la hora</button>
+      <button style="background:var(--azul-info)" id="op-fecha">📅 Decir la fecha</button>
+      <button style="background:#795548" id="op-bateria">🔋 Batería</button>
+      <button style="background:#795548" id="op-internet">📶 Estado de la conexión</button>
+      <button style="background:#795548" id="op-vibrar">📳 Vibrar</button>
+      <button style="background:#795548" id="op-linterna">🔦 Linterna</button>
+      <button style="background:var(--cyan)" id="op-nueva-nota">🗒️ Nueva nota</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-nombre" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-nombre">
+    <button class="cerrar-x" data-cerrar="ov-nombre" aria-label="Cerrar">✕</button>
+    <h2 id="tit-nombre">Cambiar nombre</h2>
+    <form id="form-nombre">
+      <div class="campo">
+        <label for="in-nombre">¿Cómo quieres que te llame?</label>
+        <input type="text" id="in-nombre" maxlength="60">
+      </div>
+      <div class="fila-2">
+        <button type="submit" class="btn" style="background:var(--verde)">Guardar</button>
+        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-nombre">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="ov-perfil" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-perfil">
+    <button class="cerrar-x" data-cerrar="ov-perfil" aria-label="Cerrar">✕</button>
+    <h2 id="tit-perfil">Cuéntame sobre ti</h2>
+    <p class="ayuda">Esto ayuda a Yoni Tech a responderte de forma más personal. Es opcional.</p>
+    <form id="form-perfil">
+      <div class="campo">
+        <label for="in-perfil">Preséntate (edad, intereses, lo que quieras)</label>
+        <textarea id="in-perfil"></textarea>
+      </div>
+      <div class="fila-2">
+        <button type="submit" class="btn" style="background:var(--verde)">Guardar</button>
+        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-perfil">Ahora no</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="ov-api" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-api">
+    <button class="cerrar-x" data-cerrar="ov-api" aria-label="Cerrar">✕</button>
+    <h2 id="tit-api">Gestionar APIs</h2>
+    <p class="ayuda">Tus claves se guardan solo en este navegador (localStorage), nunca se envían a ningún servidor propio.</p>
+    <div class="campo">
+      <label for="in-mistral-key">Clave de Mistral AI</label>
+      <input type="password" id="in-mistral-key" autocomplete="off">
+      <small><a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">Obtener clave de Mistral →</a></small>
+    </div>
+    <div class="campo">
+      <label for="in-morph-key">Clave de Morph</label>
+      <input type="password" id="in-morph-key" autocomplete="off">
+      <small><a href="https://morphllm.com/dashboard" target="_blank" rel="noopener">Obtener clave de Morph →</a></small>
+    </div>
+    <div class="lista-claves" id="lista-claves-adicionales"></div>
+    <div class="fila-2" style="margin-top:10px;">
+      <button class="btn" style="background:var(--verde)" id="btn-guardar-api">Guardar claves</button>
+      <button class="btn" style="background:var(--gris)" data-cerrar="ov-api">Cerrar</button>
+    </div>
+    <div class="fila-2" style="margin-top:8px;">
+      <button class="btn" style="background:var(--indigo)" id="btn-validar-mistral">Probar clave Mistral</button>
+      <button class="btn" style="background:var(--indigo)" id="btn-validar-morph">Probar clave Morph</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-tokens" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-tokens">
+    <button class="cerrar-x" data-cerrar="ov-tokens" aria-label="Cerrar">✕</button>
+    <h2 id="tit-tokens">Cambiar tokens máximos</h2>
+    <p class="ayuda">Controla qué tan larga puede ser cada respuesta de la IA.</p>
+    <div class="campo">
+      <label for="in-tokens-mistral">Tokens máximos - Mistral AI</label>
+      <input type="number" id="in-tokens-mistral" min="256" max="32000" step="128">
+    </div>
+    <div class="campo">
+      <label for="in-tokens-morph">Tokens máximos - Morph</label>
+      <input type="number" id="in-tokens-morph" min="256" max="32000" step="128">
+    </div>
+    <div class="fila-2">
+      <button class="btn" style="background:var(--verde)" id="btn-guardar-tokens">Guardar</button>
+      <button class="btn" style="background:var(--gris)" data-cerrar="ov-tokens">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-voz" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-voz">
+    <button class="cerrar-x" data-cerrar="ov-voz" aria-label="Cerrar">✕</button>
+    <h2 id="tit-voz">Configurar voz</h2>
+    <div class="toggle-row">
+      <label for="chk-voz-activa">Leer respuestas en voz alta automáticamente</label>
+      <span class="switch"><input type="checkbox" id="chk-voz-activa"><span class="slider-tog"></span></span>
+    </div>
+    <div class="campo">
+      <label for="sel-voz">Voz del sistema</label>
+      <select id="sel-voz"></select>
+    </div>
+    <div class="campo">
+      <label for="rango-velocidad">Velocidad (<span id="lbl-velocidad">100</span>%)</label>
+      <input type="range" id="rango-velocidad" min="50" max="200" step="5">
+    </div>
+    <div class="campo">
+      <label for="rango-tono">Tono (<span id="lbl-tono">100</span>%)</label>
+      <input type="range" id="rango-tono" min="50" max="200" step="5">
+    </div>
+    <div class="campo">
+      <label for="rango-volumen-app">Volumen de los sonidos de la app (<span id="lbl-volumen-app">70</span>%)</label>
+      <input type="range" id="rango-volumen-app" min="0" max="100" step="5">
+      <small>El navegador no puede controlar el volumen general del teléfono por seguridad; esto ajusta solo los sonidos que genera Yoni Tech.</small>
+    </div>
+    <div class="fila-2">
+      <button class="btn" style="background:var(--verde)" id="btn-guardar-voz">Guardar</button>
+      <button class="btn" style="background:var(--gris)" data-cerrar="ov-voz">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-comandos" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-comandos">
+    <button class="cerrar-x" data-cerrar="ov-comandos" aria-label="Cerrar">✕</button>
+    <h2 id="tit-comandos">Comandos personalizados</h2>
+    <p class="ayuda">Crea una frase disparadora (ej: "modo estudio") y una acción rápida que Yoni Tech ejecute sin llamar a la IA.</p>
+    <button class="btn" style="background:var(--verde); width:100%;" id="btn-nuevo-comando">+ Crear comando</button>
+    <div class="lista-comandos" id="lista-comandos"></div>
+    <div class="fila-2" style="margin-top:10px;">
+      <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-comandos">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-comando-editar" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-comando-editar">
+    <button class="cerrar-x" data-cerrar="ov-comando-editar" aria-label="Cerrar">✕</button>
+    <h2 id="tit-comando-editar">Nuevo comando</h2>
+    <form id="form-comando">
+      <div class="campo">
+        <label for="in-com-nombre">Nombre del comando</label>
+        <input type="text" id="in-com-nombre" required>
+      </div>
+      <div class="campo">
+        <label for="in-com-trigger">Frase disparadora (tal como la vas a escribir)</label>
+        <input type="text" id="in-com-trigger" required>
+      </div>
+      <div class="campo">
+        <label for="sel-com-accion">Acción</label>
+        <select id="sel-com-accion">
+          <option value="texto">Responder con un texto fijo</option>
+          <option value="hora">Decir la hora</option>
+          <option value="fecha">Decir la fecha</option>
+          <option value="bateria">Mostrar batería</option>
+          <option value="internet">Mostrar estado de conexión</option>
+          <option value="vibrar">Vibrar</option>
+          <option value="linterna">Encender/apagar linterna</option>
+          <option value="abrir_url">Abrir un sitio web</option>
+          <option value="dispositivo">Mostrar info del dispositivo</option>
+        </select>
+      </div>
+      <div class="campo" id="campo-com-extra">
+        <label for="in-com-extra">Texto de respuesta / URL</label>
+        <input type="text" id="in-com-extra">
+      </div>
+      <div class="fila-2">
+        <button type="submit" class="btn" style="background:var(--verde)">Guardar comando</button>
+        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-comando-editar">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="ov-notas" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-notas">
+    <button class="cerrar-x" data-cerrar="ov-notas" aria-label="Cerrar">✕</button>
+    <h2 id="tit-notas">Mis notas</h2>
+    <button class="btn" style="background:var(--verde); width:100%;" id="btn-nueva-nota">+ Nueva nota</button>
+    <div class="lista-notas" id="lista-notas"></div>
+    <div class="fila-2" style="margin-top:10px;">
+      <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-notas">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-nota-editar" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-nota-editar">
+    <button class="cerrar-x" data-cerrar="ov-nota-editar" aria-label="Cerrar">✕</button>
+    <h2 id="tit-nota-editar">Nota</h2>
+    <form id="form-nota">
+      <div class="campo">
+        <label for="in-nota-titulo">Título</label>
+        <input type="text" id="in-nota-titulo" required>
+      </div>
+      <div class="campo">
+        <label for="in-nota-contenido">Contenido</label>
+        <textarea id="in-nota-contenido" style="min-height:140px;"></textarea>
+      </div>
+      <div class="fila-2">
+        <button type="submit" class="btn" style="background:var(--verde)">Guardar nota</button>
+        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-nota-editar">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="ov-dispositivo" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-dispositivo">
+    <button class="cerrar-x" data-cerrar="ov-dispositivo" aria-label="Cerrar">✕</button>
+    <h2 id="tit-dispositivo">Info del dispositivo</h2>
+    <div class="msg-contenido" id="contenido-dispositivo" style="white-space:pre-wrap;font-size:0.9rem;"></div>
+    <div class="fila-2" style="margin-top:10px;">
+      <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-dispositivo">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================
+   YONI TECH — versión web
+   Adaptación fiel del plugin original (AndroLua+) a HTML/CSS/JS puro,
+   pensada para desplegarse como sitio estático (por ejemplo en Render).
+   Todo lo que en Android se hacía con APIs nativas (TTS, reconocimiento
+   de voz, batería, redes, linterna, ajustes del sistema, etc.) se
+   sustituye aquí por la API equivalente más cercana disponible en un
+   navegador. Cuando no existe ningún equivalente real, se le explica al
+   usuario con claridad qué pasó y se ofrece la alternativa más parecida
+   que sí funciona en la web (por ejemplo, abrir una búsqueda en vez de
+   abrir una app nativa instalada).
+   ========================================================================= */
+
+const contexto = { activity: true }; // solo para mantener paridad conceptual
+const $ = (sel, root) => (root||document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root||document).querySelectorAll(sel));
+
+/* ---------------------------- Utilidades base --------------------------- */
+function trim(s){ return (s===undefined||s===null) ? "" : String(s).trim(); }
+
+function escaparHTML(s){
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+async function copiarAlPortapapeles(texto){
+  try{
+    await navigator.clipboard.writeText(texto);
+    return true;
+  }catch(e){
+    try{
+      const ta=document.createElement("textarea");
+      ta.value=texto; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+      return true;
+    }catch(e2){ return false; }
+  }
+}
+
+function mostrarToast(mensaje, duracionMs){
+  const region = $("#toast-region");
+  const t = document.createElement("div");
+  t.className = "toast"; t.setAttribute("role","status"); t.textContent = mensaje;
+  region.appendChild(t);
+  setTimeout(()=>{ t.remove(); }, duracionMs || 2600);
+}
+
+/* ------------------------------ Almacenamiento --------------------------- */
+const LS = {
+  get(k, def){ try{ const v = localStorage.getItem(k); return v===null ? def : JSON.parse(v); }catch(e){ return def; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+};
+
+let MISTRAL_KEY = LS.get("yt_mistral_key","");
+let MORPH_KEY = LS.get("yt_morph_key","");
+let claves_adicionales = LS.get("yt_claves_adicionales", { "Mistral AI":[], "Morph":[] });
+let errores_clave_consecutivos = { "Mistral AI":0, "Morph":0 };
+const UMBRAL_ERRORES_ROTACION = 3;
+
+let tokens_config = LS.get("yt_tokens_config", { "Mistral AI":4000, "Morph":4000, FRAGMENT_THRESHOLD_KB:150 });
+let modelos_db = LS.get("yt_modelos_db", { "Mistral AI":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"], "Morph":["morph-v3-large","morph-v3-fast","morph-v2"] });
+
+let conversation_history = LS.get("yt_historial", []);
+const MAX_HISTORY = 20;
+let tema_actual = LS.get("yt_tema_actual", "General");
+let contador_temas = LS.get("yt_contador_temas", 1);
+
+let servicio_actual = LS.get("yt_servicio_actual", "Mistral AI");
+let modelo_actual = LS.get("yt_modelo_actual", "mistral-small-latest");
+
+let nombre_usuario = LS.get("yt_nombre_usuario", "");
+let perfil_usuario = LS.get("yt_perfil_usuario", "");
+let primera_vez_perfil = LS.get("yt_primera_vez_perfil", true);
+
+let archivosAdjuntos = []; // {nombre, tamano, contenido}
+const MAX_ADJUNTOS = 2;
+
+let comandos_usuario = LS.get("yt_comandos", []);
+let notas = LS.get("yt_notas", {}); // { titulo: {contenido, extension, fecha} }
+
+let voz_cfg = LS.get("yt_voz", { activada:false, velocidad:100, tono:100, voiceURI:"" });
+let volumen_app = LS.get("yt_volumen_app", 70);
+let sonido_activado = LS.get("yt_sonido_activado", true);
+
+function guardarConfiguracion(){
+  LS.set("yt_mistral_key", MISTRAL_KEY);
+  LS.set("yt_morph_key", MORPH_KEY);
+  LS.set("yt_servicio_actual", servicio_actual);
+  LS.set("yt_modelo_actual", modelo_actual);
+  LS.set("yt_modelos_db", modelos_db);
+  LS.set("yt_tokens_config", tokens_config);
+}
+function guardarHistorialEnArchivo(){
+  LS.set("yt_historial", conversation_history);
+  LS.set("yt_tema_actual", tema_actual);
+  LS.set("yt_contador_temas", contador_temas);
+}
+function guardarComandosUsuario(){ LS.set("yt_comandos", comandos_usuario); }
+function guardarNotas(){ LS.set("yt_notas", notas); }
+function guardarClavesAdicionales(){ LS.set("yt_claves_adicionales", claves_adicionales); }
+function guardarVoz(){ LS.set("yt_voz", voz_cfg); }
+
+/* -------------------------------- Sonidos -------------------------------- */
+/* El plugin original reproducía archivos .ogg/.mp3/.wav propios. En la web
+   no tenemos esos archivos de audio, así que generamos tonos cortos con la
+   Web Audio API para cada tipo de evento: así SÍ se escucha una señal
+   sonora en cada acción, como pediste, aunque el timbre exacto sea distinto. */
+let audioCtx = null;
+function ctxAudio(){
+  if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audioCtx=null; } }
+  return audioCtx;
+}
+const PATRONES_SONIDO = {
+  enviar_mistral:[[520,0.08]], enviar_morph:[[480,0.08]], recibir:[[700,0.09],[900,0.09]],
+  copiar:[[850,0.06]], dictado_inicio:[[600,0.07],[800,0.07]], dictado_fin:[[800,0.07],[600,0.07]],
+  dictado_error:[[220,0.18]], modelos_cargados:[[600,0.06],[750,0.06],[900,0.08]],
+  modelos_error:[[300,0.2]], error_solicitud:[[260,0.22]], abrir_barra_lateral:[[500,0.06],[650,0.06]],
+  archivo_cargado:[[700,0.07],[850,0.07]], boton:[[600,0.05]], eliminar_documento:[[350,0.1]],
+  cambio_ventana:[[450,0.05],[600,0.05]]
+};
+function reproducirSonido(tipo){
+  if(!sonido_activado) return;
+  const patron = PATRONES_SONIDO[tipo]; if(!patron) return;
+  const ctx = ctxAudio(); if(!ctx) return;
+  let t = ctx.currentTime;
+  const vol = Math.max(0, Math.min(1, volumen_app/100)) * 0.18;
+  patron.forEach(([freq,dur])=>{
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = "sine"; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t); osc.stop(t+dur+0.02);
+    t += dur;
+  });
+}
+
+/* --------------------------------- Fecha/hora ---------------------------- */
+function formatoHoraPersonalizado(){
+  return new Date().toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+}
+function formatoFechaPersonalizado(){
+  return new Date().toLocaleDateString("es-ES", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+}
+
+/* --------------------------- Teléfonos / URLs / WhatsApp ------------------ */
+function extraer_telefonos(texto){
+  const re = /(\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/g;
+  return (texto.match(re)||[]).filter(s=>s.replace(/\D/g,"").length>=7);
+}
+function extraer_urls(texto){
+  const re = /(https?:\/\/[^\s<]+[^\s<.,;:'")\]])/g;
+  return texto.match(re)||[];
+}
+function crear_enlace_whatsapp(numero){ return "https://wa.me/53"+numero.replace(/\D/g,""); }
+
+/* --------------------------- Multimensaje / separadores ------------------- */
+function split_multimensaje(respuesta){
+  return respuesta.split(/\n?---\n?/).map(trim).filter(s=>s.length>0);
+}
+
+/* --------------------------------- Render de mensajes --------------------- */
+const elConversacion = $("#conversacion");
+const elBienvenida = $("#bienvenida");
+
+function autoScroll(){
+  requestAnimationFrame(()=>{ elConversacion.scrollTop = elConversacion.scrollHeight; });
+}
+
+function linkificar(texto){
+  let html = escaparHTML(texto);
+  const urls = extraer_urls(texto);
+  urls.forEach(u=>{
+    html = html.replace(escaparHTML(u), `<a href="${escaparHTML(u)}" target="_blank" rel="noopener">${escaparHTML(u)}</a>`);
+  });
+  return html;
+}
+
+function agregarMensajeUsuario(texto){
+  if(elBienvenida) elBienvenida.remove();
+  const div = document.createElement("div");
+  div.className = "msg msg-usuario";
+  div.innerHTML = `<div class="msg-cabecera">Tú</div><div class="msg-contenido"></div>`;
+  div.querySelector(".msg-contenido").textContent = texto;
+  elConversacion.appendChild(div);
+  conversation_history.push({role:"user", content:texto});
+  if(conversation_history.length > 5000) conversation_history.shift();
+  guardarHistorialEnArchivo();
+  autoScroll();
+}
+
+function agregarBloqueCodigo(lenguaje, codigo, parentEl){
+  const wrap = document.createElement("div");
+  wrap.className = "bloque-codigo";
+  wrap.innerHTML = `
+    <div class="bloque-codigo-header">
+      <span class="bloque-codigo-lang">Lenguaje: ${escaparHTML((lenguaje||"text").toUpperCase())}</span>
+      <button class="btn-copiar-codigo" type="button">Copiar código</button>
+    </div>
+    <pre></pre>`;
+  wrap.querySelector("pre").textContent = codigo;
+  wrap.querySelector(".btn-copiar-codigo").addEventListener("click", async ()=>{
+    reproducirSonido("boton");
+    const ok = await copiarAlPortapapeles(codigo);
+    reproducirSonido(ok?"copiar":"error_solicitud");
+    mostrarToast(ok?"Código copiado":"No se pudo copiar");
+  });
+  (parentEl||elConversacion).appendChild(wrap);
+}
+
+function agregarMensajeIA(texto, modelo_usado){
+  if(elBienvenida) elBienvenida.remove();
+  reproducirSonido("recibir");
+  const layout = document.createElement("div");
+  layout.className = "msg msg-ia";
+  const cab = document.createElement("div");
+  cab.className = "msg-cabecera";
+  cab.textContent = "Yoni Tech" + (modelo_usado ? " · "+modelo_usado : "");
+  layout.appendChild(cab);
+
+  // separar bloques de código ```lang\ncodigo```
+  const partes = [];
+  let restante = texto; let m;
+  const reCodigo = /```(\w*)\n([\s\S]*?)```/g;
+  let ultimo = 0;
+  while((m = reCodigo.exec(texto))){
+    if(m.index > ultimo) partes.push({tipo:"texto", contenido:texto.slice(ultimo, m.index)});
+    partes.push({tipo:"codigo", lenguaje:m[1]||"text", codigo:m[2].replace(/\n$/,"")});
+    ultimo = reCodigo.lastIndex;
+  }
+  if(ultimo < texto.length) partes.push({tipo:"texto", contenido:texto.slice(ultimo)});
+
+  if(partes.length===0 || (partes.length===1 && partes[0].tipo==="texto")){
+    const bloques = split_multimensaje(texto);
+    (bloques.length? bloques : [texto]).forEach((bloque, i)=>{
+      if(i>0){ const hrEl = document.createElement("hr"); hrEl.className="msg-separador"; layout.appendChild(hrEl); }
+      const c = document.createElement("div");
+      c.className = "msg-contenido";
+      c.innerHTML = linkificar(bloque);
+      layout.appendChild(c);
+    });
+  } else {
+    partes.forEach(p=>{
+      if(p.tipo==="texto"){
+        const bloques = split_multimensaje(p.contenido);
+        bloques.forEach(bloque=>{
+          const c = document.createElement("div");
+          c.className = "msg-contenido";
+          c.innerHTML = linkificar(bloque);
+          layout.appendChild(c);
+        });
+      } else {
+        agregarBloqueCodigo(p.lenguaje, p.codigo, layout);
+      }
+    });
+  }
+
+  elConversacion.appendChild(layout);
+  conversation_history.push({role:"assistant", content:texto});
+  if(conversation_history.length > 5000) conversation_history.shift();
+  guardarHistorialEnArchivo();
+  autoScroll();
+
+  if(voz_cfg.activada){ hablarTexto(texto.replace(/```[\s\S]*?```/g,"").replace(/\[\[NOTA_ACCION:.*?\]\]/g,"")); }
+}
+
+function agregarMensajeResultadosMusica(consultaOriginal, resultados){
+  if(elBienvenida) elBienvenida.remove();
+  reproducirSonido("recibir");
+  const layout = document.createElement("div");
+  layout.className = "msg msg-ia";
+  layout.innerHTML = `<div class="msg-cabecera">Yoni Tech · Música</div>
+    <div class="msg-contenido">Esto es lo que encontré para «${escaparHTML(consultaOriginal)}»:</div>`;
+  resultados.forEach(r=>{
+    const card = document.createElement("div");
+    card.className = "musica-card";
+    card.innerHTML = `<span>${escaparHTML(r.titulo)}</span><a class="btn" target="_blank" rel="noopener" href="${r.url}">Abrir en YouTube</a>`;
+    layout.appendChild(card);
+  });
+  elConversacion.appendChild(layout);
+  autoScroll();
+}
+
+let elIndicador = null;
+function mostrarIndicadorEscribiendo(msg){
+  eliminarIndicadorEscribiendo();
+  elIndicador = document.createElement("div");
+  elIndicador.className = "indicador-escribiendo";
+  elIndicador.setAttribute("role","status");
+  elIndicador.textContent = msg || "Yoni Tech está escribiendo...";
+  elConversacion.appendChild(elIndicador);
+  autoScroll();
+}
+function actualizarIndicadorEscribiendo(msg){ if(elIndicador) elIndicador.textContent = msg; }
+function eliminarIndicadorEscribiendo(){ if(elIndicador){ elIndicador.remove(); elIndicador=null; } }
+
+/* --------------------------------- Notas ---------------------------------- */
+const TEXTO_SYSTEM_PROMPT_NOTAS =
+"\n\nTienes la capacidad de guardar, editar, leer y abrir notas de texto (.txt) o HTML (.html) para el usuario, usando un bloc de notas interno. " +
+"Debes interpretar SIEMPRE el contexto de la conversacion para decidir cuando usar esto, sin que el usuario tenga que pedirlo con palabras exactas. Casos en los que debes actuar: " +
+"1) Si el usuario pide informacion que tu ya respondiste (por ejemplo el clima) y quiere guardarla, o si resulta natural ofrecer guardar una respuesta tuya (por ejemplo tras dar el clima de un lugar), pregunta si quiere que guardes esa respuesta en una nota, y si acepta, guardala con un titulo descriptivo como 'Respuesta del clima [dia] en [lugar]'. " +
+"2) Si el usuario dice algo como 'guarda esto', 'apunta esto', 'toma nota', 'anota que...', 'me gusto este HTML, guardalo', identifica EXACTAMENTE que parte del mensaje o de la conversacion quiere guardar; si no esta claro que parte exactamente, preguntaselo primero en vez de adivinar. " +
+"3) Si el usuario suena apurado y dicta algo rapido para anotar (por ejemplo una cuenta o un dato suelto) sin darte un nombre para la nota, guardala igualmente con un titulo generico (no le pidas el nombre en ese caso, tu decides un titulo breve). " +
+"4) Si el usuario pide abrir, leer, o le pregunta por una nota anterior (por ejemplo 'abre la nota de Karol G', 'que dice la nota que hice ayer sobre X'), debes localizarla por su tema y leersela. " +
+"5) Si el usuario pide editar o agregar algo a una nota existente, localizala por su tema y aplica el cambio. " +
+"Cuando decidas ejecutar una de estas acciones, agrega SIEMPRE al final de tu respuesta (nunca en medio del texto) una linea nueva EXACTAMENTE con este formato JSON de una sola linea, sin explicarla ni mencionarla al usuario: " +
+"[[NOTA_ACCION:{\"tipo\":\"guardar\",\"titulo\":\"titulo o vacio\",\"contenido\":\"el texto a guardar\",\"extension\":\"txt o html\"}]] para guardar, " +
+"[[NOTA_ACCION:{\"tipo\":\"editar\",\"tema\":\"tema o nombre para localizar la nota\",\"contenido\":\"texto nuevo\",\"modo\":\"sobrescribir o agregar\"}]] para editar, " +
+"[[NOTA_ACCION:{\"tipo\":\"leer\",\"tema\":\"tema o nombre para localizar la nota\"}]] para leer/abrir una nota. " +
+"Nunca muestres ese bloque como parte del texto conversacional que lee el usuario, ni lo menciones; el sistema lo procesa por separado. Tu respuesta visible al usuario debe sonar natural, por ejemplo 'Listo, ya te la guarde' o '¿Quieres que te la lea?', y el bloque JSON va aparte, al final.";
+
+function generarTituloAutomatico(){
+  return "Nota " + new Date().toLocaleString("es-ES");
+}
+function guardarNota(tituloSugerido, contenido, extension){
+  const titulo = trim(tituloSugerido) || generarTituloAutomatico();
+  notas[titulo] = { contenido: contenido||"", extension: extension==="html"?"html":"txt", fecha: new Date().toISOString() };
+  guardarNotas();
+  return titulo;
+}
+function buscarNotaPorTema(tema){
+  if(!tema) return null;
+  const t = tema.toLowerCase();
+  const claves = Object.keys(notas);
+  let exacto = claves.find(k=>k.toLowerCase()===t);
+  if(exacto) return exacto;
+  let parcial = claves.find(k=>k.toLowerCase().includes(t) || t.includes(k.toLowerCase()));
+  return parcial || null;
+}
+function editarNota(tema, contenidoNuevo, modo){
+  const clave = buscarNotaPorTema(tema);
+  if(!clave) return [false, null];
+  if(modo==="sobrescribir") notas[clave].contenido = contenidoNuevo;
+  else notas[clave].contenido = (notas[clave].contenido||"") + "\n" + contenidoNuevo;
+  notas[clave].fecha = new Date().toISOString();
+  guardarNotas();
+  return [true, clave];
+}
+function leerNota(tema){
+  const clave = buscarNotaPorTema(tema);
+  if(!clave) return [null, null];
+  return [notas[clave].contenido, clave];
+}
+function interceptarYEjecutarAccionNota(textoRespuesta){
+  const match = textoRespuesta.match(/\[\[NOTA_ACCION:(\{[\s\S]*?\})\]\]\s*$/);
+  if(!match) return [textoRespuesta, null];
+  const textoLimpio = trim(textoRespuesta.replace(/\s*\[\[NOTA_ACCION:[\s\S]*?\]\]\s*$/,""));
+  let accion;
+  try{ accion = JSON.parse(match[1]); }catch(e){ return [textoLimpio, null]; }
+  if(!accion || !accion.tipo) return [textoLimpio, null];
+  if(accion.tipo==="guardar"){
+    const nombreArchivo = guardarNota(accion.titulo, accion.contenido||"", accion.extension);
+    return [textoLimpio, `(Nota guardada como "${nombreArchivo}" en tus notas.)`];
+  } else if(accion.tipo==="editar"){
+    const [exito, nombreArchivo] = editarNota(accion.tema, accion.contenido||"", accion.modo||"agregar");
+    return [textoLimpio, exito ? `(Nota "${nombreArchivo}" actualizada.)` : `(No encontré una nota relacionada con "${accion.tema}" para editar.)`];
+  } else if(accion.tipo==="leer"){
+    const [contenido, nombreArchivo] = leerNota(accion.tema);
+    return [textoLimpio, contenido!==null ? `(Contenido de "${nombreArchivo}":)\n${contenido}` : `(No encontré ninguna nota relacionada con "${accion.tema}".)`];
+  }
+  return [textoLimpio, null];
+}
+
+/* --------------------------------- Clima ----------------------------------
+   El plugin original necesitaba una clave de OpenWeather. Aquí usamos
+   Open-Meteo, que es gratis, no necesita clave y funciona directo desde el
+   navegador (CORS abierto) — así el clima SÍ funciona sin que tengas que
+   configurar nada. */
+async function geocodificarCiudad(nombreCiudad){
+  const url = "https://geocoding-api.open-meteo.com/v1/search?count=1&language=es&name=" + encodeURIComponent(nombreCiudad);
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("geocoding_error");
+  const data = await res.json();
+  if(!data.results || !data.results.length) return null;
+  const r = data.results[0];
+  return { lat:r.latitude, lon:r.longitude, nombre:r.name + (r.country? ", "+r.country : "") };
+}
+const CODIGOS_CLIMA = {
+  0:"cielo despejado",1:"mayormente despejado",2:"parcialmente nublado",3:"nublado",
+  45:"neblina",48:"neblina con escarcha",51:"llovizna ligera",53:"llovizna moderada",55:"llovizna intensa",
+  61:"lluvia ligera",63:"lluvia moderada",65:"lluvia intensa",71:"nevada ligera",73:"nevada moderada",75:"nevada intensa",
+  80:"chubascos ligeros",81:"chubascos moderados",82:"chubascos intensos",95:"tormenta eléctrica",96:"tormenta con granizo",99:"tormenta fuerte con granizo"
+};
+async function consultarClimaCoordenadas(lat, lon, nombreCiudadMostrar){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("forecast_error");
+  const data = await res.json();
+  const c = data.current;
+  const desc = CODIGOS_CLIMA[c.weather_code] || "condiciones variables";
+  const max = data.daily.temperature_2m_max[0], min = data.daily.temperature_2m_min[0];
+  return `El clima en ${nombreCiudadMostrar} ahora: ${desc}, ${c.temperature_2m}°C (sensación ${c.apparent_temperature}°C). ` +
+         `Humedad ${c.relative_humidity_2m}%, viento ${c.wind_speed_10m} km/h. Hoy: máxima ${max}°C, mínima ${min}°C.`;
+}
+function extraerCiudadYDiaClima(textoLower){
+  let m = textoLower.match(/(?:clima|tiempo|pronostico|pronóstico|temperatura)\s+(?:en|de|para)\s+([a-záéíóúñü\s]+)/i);
+  if(m) return trim(m[1]);
+  m = textoLower.match(/(?:en|de|para)\s+([a-záéíóúñü\s]+)\s*(?:\?|$)/i);
+  if(m) return trim(m[1]);
+  return null;
+}
+async function consultarClimaPorPregunta(textoLower){
+  const ciudad = extraerCiudadYDiaClima(textoLower);
+  if(!ciudad) return "¿De qué ciudad quieres saber el clima?";
+  const geo = await geocodificarCiudad(ciudad);
+  if(!geo) return `No pude encontrar la ciudad "${ciudad}". ¿Puedes verificarla?`;
+  return await consultarClimaCoordenadas(geo.lat, geo.lon, geo.nombre);
+}
+
+/* --------------------------------- Música -----------------------------------
+   El plugin original usaba un servicio externo (SaveTube) para buscar y
+   descargar audio de YouTube directamente en el teléfono. Eso no es posible
+   desde una página web sin backend propio (y sin violar términos de
+   servicio), así que la acción equivalente en el navegador es abrir la
+   búsqueda de YouTube en una pestaña nueva, lo cual sí funciona siempre. */
+function detectarComandoMusica(textoLower){
+  const patrones = [/^pon\s+(?:la\s+)?(?:musica|música|cancion|canción)\s+(.+)/i,
+    /^reproduce\s+(.+)/i, /^busca\s+(?:la\s+)?(?:musica|música|cancion|canción)\s+(.+)/i,
+    /^quiero escuchar\s+(.+)/i];
+  for(const p of patrones){ const m = textoLower.match(p); if(m) return trim(m[1]); }
+  return null;
+}
+function buscarMusicaWeb(consulta){
+  const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(consulta);
+  return [{ titulo: `Buscar "${consulta}" en YouTube`, url }];
+}
+
+/* -------------------------------- TTS / STT -------------------------------- */
+function poblarVocesDisponibles(){
+  const sel = $("#sel-voz");
+  if(!("speechSynthesis" in window)){ sel.innerHTML = "<option>No disponible en este navegador</option>"; return; }
+  const voces = speechSynthesis.getVoices().filter(v=>v.lang.startsWith("es")).concat(speechSynthesis.getVoices().filter(v=>!v.lang.startsWith("es")));
+  sel.innerHTML = "";
+  voces.forEach(v=>{
+    const opt = document.createElement("option");
+    opt.value = v.voiceURI; opt.textContent = `${v.name} (${v.lang})`;
+    if(v.voiceURI===voz_cfg.voiceURI) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+if("speechSynthesis" in window){ speechSynthesis.onvoiceschanged = poblarVocesDisponibles; }
+
+function hablarTexto(texto){
+  if(!("speechSynthesis" in window)){ mostrarToast("Este navegador no admite lectura en voz alta."); return; }
+  detenerVoz();
+  const utt = new SpeechSynthesisUtterance(texto);
+  utt.lang = "es-ES";
+  utt.rate = Math.max(0.5, Math.min(2, voz_cfg.velocidad/100));
+  utt.pitch = Math.max(0.5, Math.min(2, voz_cfg.tono/100));
+  if(voz_cfg.voiceURI){
+    const v = speechSynthesis.getVoices().find(v=>v.voiceURI===voz_cfg.voiceURI);
+    if(v) utt.voice = v;
+  }
+  speechSynthesis.speak(utt);
+}
+function detenerVoz(){ if("speechSynthesis" in window) speechSynthesis.cancel(); }
+
+let reconocimiento = null;
+let isListening = false;
+function iniciarDictado(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ mostrarToast("Este navegador no admite dictado por voz. Prueba con Chrome en Android."); reproducirSonido("dictado_error"); return; }
+  if(isListening) return;
+  reconocimiento = new SR();
+  reconocimiento.lang = "es-ES";
+  reconocimiento.interimResults = false;
+  reconocimiento.maxAlternatives = 1;
+  reconocimiento.onstart = ()=>{
+    isListening = true; reproducirSonido("dictado_inicio");
+    $("#btn_dictado").classList.add("escuchando");
+    $("#btn_dictado").setAttribute("aria-pressed","true");
+    $("#btn_dictado").setAttribute("aria-label","Detener dictado");
+    mostrarToast("Escuchando...");
+  };
+  reconocimiento.onresult = (ev)=>{
+    const texto = ev.results[0][0].transcript;
+    const cajaTexto = $("#edit_pregunta");
+    cajaTexto.value = (cajaTexto.value ? cajaTexto.value + " " : "") + texto;
+    ajustarAlturaTextarea();
+  };
+  reconocimiento.onerror = ()=>{ reproducirSonido("dictado_error"); };
+  reconocimiento.onend = ()=>{
+    isListening = false; reproducirSonido("dictado_fin");
+    $("#btn_dictado").classList.remove("escuchando");
+    $("#btn_dictado").setAttribute("aria-pressed","false");
+    $("#btn_dictado").setAttribute("aria-label","Activar dictado por voz");
+  };
+  try{ reconocimiento.start(); }catch(e){ mostrarToast("No se pudo iniciar el dictado."); }
+}
+function detenerDictado(){ if(reconocimiento && isListening){ try{ reconocimiento.stop(); }catch(e){} } }
+
+/* ---------------------------- Info del dispositivo -------------------------- */
+async function obtenerInfoBateria(){
+  if(!("getBattery" in navigator)){
+    return "Este navegador no expone el nivel de batería (por ejemplo Firefox o Safari lo bloquean por privacidad). Revisa el indicador de batería de tu sistema.";
+  }
+  try{
+    const b = await navigator.getBattery();
+    const pct = Math.round(b.level*100);
+    let txt = `Batería: ${pct}%. ${b.charging ? "Cargando." : "No está cargando."}`;
+    if(b.charging && isFinite(b.chargingTime) && b.chargingTime>0) txt += ` Tiempo estimado para cargar completo: ${Math.round(b.chargingTime/60)} min.`;
+    if(!b.charging && isFinite(b.dischargingTime) && b.dischargingTime>0) txt += ` Autonomía estimada restante: ${Math.round(b.dischargingTime/60)} min.`;
+    let recomendacion = "";
+    if(pct<=15 && !b.charging) recomendacion = "\n\nTu batería está baja, sería buen momento para conectar el cargador.";
+    else if(pct>=95 && b.charging) recomendacion = "\n\nTu batería ya casi está llena.";
+    return txt + recomendacion;
+  }catch(e){
+    return "No pude leer el estado de la batería en este navegador.";
+  }
+}
+function obtenerInfoRAM(){
+  if("deviceMemory" in navigator) return `Memoria RAM aproximada del dispositivo: ${navigator.deviceMemory} GB (dato aproximado que expone el navegador).`;
+  return "Este navegador no informa la memoria RAM del dispositivo.";
+}
+function obtenerInfoProcesador(){
+  if("hardwareConcurrency" in navigator) return `Núcleos de CPU disponibles para el navegador: ${navigator.hardwareConcurrency}.`;
+  return "Este navegador no informa los núcleos del procesador.";
+}
+function obtenerInfoSistema(){
+  return `Sistema: ${navigator.platform || "desconocido"}. Navegador: ${navigator.userAgent}.`;
+}
+function obtenerInfoPantalla(){
+  return `Pantalla: ${screen.width}x${screen.height} px (densidad ${window.devicePixelRatio||1}x). Ventana visible: ${window.innerWidth}x${window.innerHeight} px.`;
+}
+function obtenerInfoSensores(){
+  const disponibles = [];
+  if("DeviceOrientationEvent" in window) disponibles.push("orientación");
+  if("DeviceMotionEvent" in window) disponibles.push("movimiento/acelerómetro");
+  if("Geolocation" in navigator || navigator.geolocation) disponibles.push("ubicación GPS");
+  if("AmbientLightSensor" in window) disponibles.push("luz ambiental");
+  if("vibrate" in navigator) disponibles.push("vibración");
+  if("bluetooth" in navigator) disponibles.push("Bluetooth (Web Bluetooth)");
+  return disponibles.length ? `Sensores/capacidades detectados por el navegador: ${disponibles.join(", ")}.` : "No detecté sensores accesibles desde el navegador.";
+}
+async function obtenerInfoAlmacenamiento(){
+  if(navigator.storage && navigator.storage.estimate){
+    try{
+      const est = await navigator.storage.estimate();
+      const usadoMB = (est.usage/1048576).toFixed(1), cuotaMB=(est.quota/1048576).toFixed(1);
+      return `Almacenamiento web disponible para este sitio: ${usadoMB} MB usados de ${cuotaMB} MB permitidos (esto no es el almacenamiento total del teléfono, los navegadores no exponen ese dato por seguridad).`;
+    }catch(e){ return "No pude leer el almacenamiento."; }
+  }
+  return "Este navegador no informa el almacenamiento disponible.";
+}
+function obtenerTipoConexion(){
+  if(!navigator.onLine) return "Sin conexión";
+  const c = navigator.connection || navigator.webkitConnection || navigator.mozConnection;
+  if(c && c.type) return c.type;
+  if(c && c.effectiveType) return c.effectiveType;
+  return "conexión activa";
+}
+function obtenerTextoIntensidadSenal(){
+  const c = navigator.connection || navigator.webkitConnection || navigator.mozConnection;
+  if(!navigator.onLine) return "Sin conexión a Internet.";
+  if(c) return `Tipo de red estimado: ${c.effectiveType||"desconocido"}. Velocidad de bajada estimada por el navegador: ${c.downlink||"?"} Mbps. Ida y vuelta (RTT): ${c.rtt||"?"} ms.${c.saveData? " Modo ahorro de datos activado.":""}`;
+  return "Tienes conexión a Internet, pero este navegador no expone más detalles de la señal.";
+}
+async function obtenerResumenDispositivo(){
+  const partes = [
+    obtenerInfoSistema(), obtenerInfoPantalla(), obtenerInfoProcesador(), obtenerInfoRAM(),
+    await obtenerInfoAlmacenamiento(), obtenerInfoSensores(), obtenerTextoIntensidadSenal(),
+    await obtenerInfoBateria()
+  ];
+  return partes.join("\n\n");
+}
+
+/* --------------------------------- Linterna / vibración --------------------- */
+let trackLinterna = null;
+async function alternarLinterna(){
+  if(trackLinterna){
+    try{ await trackLinterna.applyConstraints({advanced:[{torch:false}]}); }catch(e){}
+    trackLinterna.stop(); trackLinterna = null;
+    return "Linterna apagada.";
+  }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" } });
+    const track = stream.getVideoTracks()[0];
+    const capacidades = track.getCapabilities ? track.getCapabilities() : {};
+    if(!capacidades.torch){ track.stop(); return "Tu cámara no permite controlar la linterna desde el navegador."; }
+    await track.applyConstraints({advanced:[{torch:true}]});
+    trackLinterna = track;
+    return "Linterna encendida (requiere que mantengas esta pestaña abierta).";
+  }catch(e){
+    return "No pude acceder a la cámara para encender la linterna. Revisa los permisos de cámara del navegador.";
+  }
+}
+function activarVibracion(){
+  if("vibrate" in navigator){ navigator.vibrate(250); return "Vibrando."; }
+  return "Este dispositivo o navegador no admite vibración por web.";
+}
+
+/* --------------------------------- Abrir apps/sitios ------------------------ */
+const MAPA_SITIOS = {
+  "youtube":"https://youtube.com","whatsapp":"https://web.whatsapp.com","facebook":"https://facebook.com",
+  "instagram":"https://instagram.com","gmail":"https://mail.google.com","correo":"https://mail.google.com",
+  "maps":"https://maps.google.com","mapas":"https://maps.google.com","calendario":"https://calendar.google.com",
+  "drive":"https://drive.google.com","twitter":"https://x.com","x":"https://x.com","tiktok":"https://tiktok.com",
+  "netflix":"https://netflix.com","spotify":"https://open.spotify.com","amazon":"https://amazon.com",
+  "traductor":"https://translate.google.com","wikipedia":"https://es.wikipedia.org"
+};
+function abrirSitioPorNombre(nombre){
+  const clave = Object.keys(MAPA_SITIOS).find(k=> nombre.includes(k));
+  if(clave){ window.open(MAPA_SITIOS[clave], "_blank", "noopener"); return `Abriendo ${clave}...`; }
+  window.open("https://www.google.com/search?q="+encodeURIComponent(nombre), "_blank", "noopener");
+  return `Los navegadores no pueden ver ni abrir apps instaladas en tu teléfono por seguridad, así que te abrí una búsqueda de "${nombre}" en su lugar.`;
+}
+
+/* --------------------------------- Ajustes del sistema ---------------------- */
+/* En Android, Chrome permite abrir algunas pantallas de ajustes reales
+   mediante enlaces "intent://". Lo intentamos; si el navegador o el
+   sistema operativo no lo soportan (por ejemplo en escritorio), avisamos
+   con claridad en vez de fallar en silencio. */
+function intentarAbrirAjustesAndroid(accion, etiqueta){
+  const esAndroid = /Android/i.test(navigator.userAgent);
+  if(!esAndroid){
+    mostrarToast(`No puedo abrir ${etiqueta} del sistema desde un navegador de escritorio.`);
+    return;
+  }
+  try{
+    window.location.href = `intent:#Intent;action=android.settings.${accion};end`;
+    mostrarToast(`Intentando abrir ${etiqueta}...`);
+  }catch(e){
+    mostrarToast(`No pude abrir ${etiqueta} desde el navegador.`);
+  }
+}
+
+/* --------------------------------- Comandos personalizados ------------------ */
+function buscarComandoPersonalizado(textoLower){
+  return comandos_usuario.find(c => textoLower.includes(c.trigger.toLowerCase()));
+}
+async function ejecutarAccionComando(cmd){
+  switch(cmd.accion){
+    case "hora": return `Son las ${formatoHoraPersonalizado()}.`;
+    case "fecha": return `Hoy es ${formatoFechaPersonalizado()}.`;
+    case "bateria": return await obtenerInfoBateria();
+    case "internet": return obtenerTextoIntensidadSenal();
+    case "vibrar": return activarVibracion();
+    case "linterna": return await alternarLinterna();
+    case "dispositivo": return await obtenerResumenDispositivo();
+    case "abrir_url":
+      if(cmd.extra){ window.open(cmd.extra.startsWith("http")?cmd.extra:"https://"+cmd.extra, "_blank","noopener"); return "Abriendo el sitio..."; }
+      return "Este comando no tiene una URL configurada.";
+    case "texto": default: return cmd.extra || "(Este comando no tiene un texto de respuesta configurado.)";
+  }
+}
+
+/* --------------------------------- Adjuntos ---------------------------------- */
+function formatearTamano(bytes){
+  if(bytes < 1024) return bytes+" B";
+  if(bytes < 1048576) return (bytes/1024).toFixed(1)+" KB";
+  return (bytes/1048576).toFixed(1)+" MB";
+}
+function actualizarVistaAdjuntos(){
+  const bar = $("#adjuntos-bar");
+  bar.innerHTML = "";
+  if(archivosAdjuntos.length===0){ bar.style.display = "none"; return; }
+  bar.style.display = "flex";
+  archivosAdjuntos.forEach((a, i)=>{
+    const chip = document.createElement("div");
+    chip.className = "chip-adjunto";
+    chip.innerHTML = `<span>📄 ${escaparHTML(a.nombre)} (${formatearTamano(a.tamano)})</span>`;
+    const btn = document.createElement("button");
+    btn.type="button"; btn.setAttribute("aria-label","Quitar "+a.nombre); btn.textContent = "✕";
+    btn.addEventListener("click", ()=>{
+      reproducirSonido("eliminar_documento");
+      archivosAdjuntos.splice(i,1);
+      actualizarVistaAdjuntos();
+    });
+    chip.appendChild(btn);
+    bar.appendChild(chip);
+  });
+}
+function leerArchivoComoTexto(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = ()=> reject(r.error);
+    r.readAsText(file);
+  });
+}
+async function manejarSeleccionArchivos(fileList){
+  for(const file of Array.from(fileList)){
+    if(archivosAdjuntos.length >= MAX_ADJUNTOS){ mostrarToast(`Máximo ${MAX_ADJUNTOS} archivos permitidos`); break; }
+    try{
+      const contenido = await leerArchivoComoTexto(file);
+      archivosAdjuntos.push({ nombre:file.name, tamano:file.size, contenido });
+      reproducirSonido("archivo_cargado");
+    }catch(e){
+      mostrarToast("No se pudo leer "+file.name);
+    }
+  }
+  actualizarVistaAdjuntos();
+}
+
+/* --------------------------------- Fragmentación de documentos grandes ------- */
+function fragmentarTexto(texto, maxLength){
+  const fragmentos = [];
+  for(let i=0;i<texto.length;i+=maxLength) fragmentos.push(texto.slice(i, i+maxLength));
+  return fragmentos;
+}
+
+/* --------------------------------- Construcción de mensajes ------------------ */
+function promptSistema(){
+  let system = "Eres Yoni Tech, un asistente inteligente, amable y cordial. ";
+  if(perfil_usuario) system += `El usuario se presenta asi: '${perfil_usuario}'. `;
+  if(nombre_usuario) system += `Puedes llamarlo por su nombre: ${nombre_usuario}. `;
+  system += "Si te preguntan quien te creo o como te llamas, responde que eres Yoni Tech, y que fuiste creado por un joven de Cuba, Jonathan, de 14 años. Es un chico que persigue proyectos grandes y ambiciosos. No se limita por su discapacidad visual. Me creo con un Xiaomi Redmi 9A. Comence compilado para un plugin del Jieshuo, y esta es mi version adaptada para funcionar como pagina web en el navegador. ";
+  system += "Cuando des listas, opciones, pasos, tablas, resumenes o cualquier elemento multiple, DEBES separar CADA seccion independiente con una linea que contenga exactamente '---'. " +
+    "Esto incluye separar el resumen inicial de la tabla, los parrafos de recomendaciones y cualquier bloque de texto que sea una unidad distinta. " +
+    "NUNCA muestres un resumen seguido de una tabla sin un '---' entre ellos. Toda seccion distinta debe estar delimitada por '---' antes y despues. " +
+    "Jamas saludes ni te presentes despues del primer mensaje. Responde directamente a la peticion del usuario, sin introducciones ni frases de cortesia. " +
+    "No inventes informacion. Si no sabes algo, dilo claramente. No repitas listas ni entres en bucles. Responde de manera directa, clara y concisa, ajustandote a lo que el usuario pide.";
+  system += TEXTO_SYSTEM_PROMPT_NOTAS;
+  return system;
+}
+function buildMessagesFromHistory(systemPrompt, currentUserMessage){
+  const recientes = conversation_history.slice(-MAX_HISTORY);
+  const messages = [{role:"system", content:systemPrompt}];
+  recientes.forEach(h=> messages.push({role:h.role, content:h.content}));
+  // el último de conversation_history ya es el mensaje actual del usuario (se agregó antes de llamar)
+  return messages;
+}
+
+/* --------------------------------- Llamadas a las APIs ------------------------ */
+async function llamarServicioIA(servicio, pregunta, modelo){
+  const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
+  const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
+  if(!KEY){
+    agregarMensajeIA(`[Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs".]`, servicio);
+    return;
+  }
+  const system = promptSistema();
+  const messages = buildMessagesFromHistory(system, pregunta);
+  mostrarIndicadorEscribiendo();
+  try{
+    const res = await fetch(ENDPOINT, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
+      body: JSON.stringify({ model:modelo, messages, temperature:0.7, max_tokens: tokens_config[servicio]||4000 })
+    });
+    eliminarIndicadorEscribiendo();
+    if(res.ok){
+      errores_clave_consecutivos[servicio] = 0;
+      const datos = await res.json();
+      const mensaje = datos.choices && datos.choices[0] && datos.choices[0].message;
+      if(mensaje && mensaje.content){
+        const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(String(mensaje.content));
+        agregarMensajeIA(mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio, modelo);
+      } else {
+        reproducirSonido("error_solicitud");
+        agregarMensajeIA("[Error: respuesta vacía]", modelo);
+      }
+    } else {
+      const roto = ++errores_clave_consecutivos[servicio] >= UMBRAL_ERRORES_ROTACION;
+      if(roto && claves_adicionales[servicio] && claves_adicionales[servicio].length){
+        const nuevaClave = claves_adicionales[servicio].shift();
+        if(servicio==="Morph") MORPH_KEY = nuevaClave; else MISTRAL_KEY = nuevaClave;
+        guardarConfiguracion(); guardarClavesAdicionales();
+        errores_clave_consecutivos[servicio] = 0;
+        agregarMensajeIA(`Tu clave de ${servicio} dejó de funcionar (error ${res.status}). Se cambió automáticamente a una de tus claves adicionales guardadas. Reintentando tu pregunta...`, servicio);
+        return llamarServicioIA(servicio, pregunta, modelo);
+      }
+      reproducirSonido("error_solicitud");
+      agregarMensajeIA(`[Error HTTP ${res.status} al llamar a ${servicio}]`, modelo);
+    }
+  }catch(e){
+    eliminarIndicadorEscribiendo();
+    reproducirSonido("error_solicitud");
+    agregarMensajeIA(`[No se pudo conectar con ${servicio}. Puede ser tu conexión a Internet, o que ${servicio} no permita llamadas directas desde el navegador (CORS). Verifica tu clave y tu conexión.]`, modelo);
+  }
+}
+
+async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregunta, modelo){
+  const maxChars = 40000;
+  const fragmentos = fragmentarTexto(documento, maxChars);
+  const resumenes = [];
+  mostrarIndicadorEscribiendo(`Procesando documento grande (0/${fragmentos.length})...`);
+  const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
+  const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
+  if(!KEY){ eliminarIndicadorEscribiendo(); agregarMensajeIA(`[Falta la clave de API de ${servicio}]`, servicio); return; }
+  try{
+    for(let i=0;i<fragmentos.length;i++){
+      actualizarIndicadorEscribiendo(`Procesando documento grande (${i+1}/${fragmentos.length})...`);
+      const res = await fetch(ENDPOINT, {
+        method:"POST", headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
+        body: JSON.stringify({ model:modelo, messages:[
+          {role:"system", content:"Resume brevemente el siguiente fragmento de un documento largo, en español, conservando los datos importantes."},
+          {role:"user", content:fragmentos[i]}
+        ], temperature:0.5, max_tokens: 800 })
+      });
+      if(res.ok){ const d = await res.json(); resumenes.push(d.choices?.[0]?.message?.content || ""); }
+    }
+    actualizarIndicadorEscribiendo("Generando respuesta final...");
+    const resumenTotal = resumenes.join("\n\n");
+    const system = promptSistema();
+    const res2 = await fetch(ENDPOINT, {
+      method:"POST", headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
+      body: JSON.stringify({ model:modelo, messages:[
+        {role:"system", content:system},
+        {role:"user", content:`Aquí tienes el resumen de un documento largo dividido en partes:\n\n${resumenTotal}\n\nPregunta del usuario sobre ese documento: ${pregunta}`}
+      ], temperature:0.7, max_tokens: tokens_config[servicio]||4000 })
+    });
+    eliminarIndicadorEscribiendo();
+    if(res2.ok){
+      const d2 = await res2.json();
+      const contenido = d2.choices?.[0]?.message?.content || "[Respuesta vacía]";
+      const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(contenido);
+      agregarMensajeIA(mensajeAccion? textoLimpio+"\n\n"+mensajeAccion : textoLimpio, modelo);
+    } else {
+      reproducirSonido("error_solicitud");
+      agregarMensajeIA(`[Error HTTP ${res2.status} generando la respuesta final]`, modelo);
+    }
+  }catch(e){
+    eliminarIndicadorEscribiendo();
+    reproducirSonido("error_solicitud");
+    agregarMensajeIA("[Ocurrió un error procesando el documento grande]", modelo);
+  }
+}
+
+/* --------------------------------- Recargar modelos --------------------------- */
+async function recargarModelos(){
+  reproducirSonido("boton");
+  const servicio = $("#sp_servicio").value;
+  const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
+  const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/models" : "https://api.mistral.ai/v1/models";
+  if(!KEY){ mostrarToast("Configura primero tu clave de "+servicio); reproducirSonido("modelos_error"); return; }
+  try{
+    const res = await fetch(ENDPOINT, { headers:{ "Authorization":"Bearer "+KEY } });
+    if(!res.ok) throw new Error("http "+res.status);
+    const data = await res.json();
+    const ids = (data.data||[]).map(m=>m.id).filter(id=> !/embed|moderation/i.test(id));
+    if(ids.length){
+      modelos_db[servicio] = ids;
+      guardarConfiguracion();
+      poblarSelectorModelos();
+      reproducirSonido("modelos_cargados");
+      mostrarToast(`${ids.length} modelos cargados para ${servicio}`);
+    } else { throw new Error("vacío"); }
+  }catch(e){
+    reproducirSonido("modelos_error");
+    mostrarToast(`No pude recargar modelos de ${servicio} en línea, se mantiene la lista predeterminada.`);
+  }
+}
+function poblarSelectorModelos(){
+  const sel = $("#sp_modelo");
+  const lista = modelos_db[servicio_actual] || [];
+  sel.innerHTML = "";
+  lista.forEach(m=>{
+    const opt = document.createElement("option"); opt.value=m; opt.textContent=m;
+    if(m===modelo_actual) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if(lista.length && !lista.includes(modelo_actual)){ modelo_actual = lista[0]; sel.value = modelo_actual; }
+}
+
+/* --------------------------------- Validación de claves ----------------------- */
+async function validarClave(servicio){
+  const KEY = servicio==="Morph" ? $("#in-morph-key").value : $("#in-mistral-key").value;
+  const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/models" : "https://api.mistral.ai/v1/models";
+  if(!trim(KEY)){ mostrarToast("Escribe una clave primero"); return; }
+  mostrarToast("Comprobando clave de "+servicio+"...");
+  try{
+    const res = await fetch(ENDPOINT, { headers:{ "Authorization":"Bearer "+KEY } });
+    mostrarToast(res.ok ? `Clave de ${servicio} válida ✅` : `Clave de ${servicio} rechazada (HTTP ${res.status})`);
+  }catch(e){
+    mostrarToast(`No se pudo comprobar la clave de ${servicio} (conexión o CORS).`);
+  }
+}
+
+/* --------------------------------- Procesar pregunta principal ---------------- */
+let envio_en_curso = false, ultimo_envio_texto = "", ultimo_envio_ts = 0;
+
+async function procesarPregunta(pregunta){
+  if(trim(pregunta).length===0 && archivosAdjuntos.length===0) return;
+  const ahora = Date.now();
+  if(envio_en_curso) return;
+  if(ultimo_envio_texto===pregunta && (ahora-ultimo_envio_ts) < 2000) return;
+  envio_en_curso = true; ultimo_envio_texto = pregunta; ultimo_envio_ts = ahora;
+  setTimeout(()=>{ envio_en_curso=false; }, 600);
+
+  const servicio = $("#sp_servicio").value;
+  const lower = pregunta.toLowerCase();
+  const cajaTexto = $("#edit_pregunta");
+
+  // hora / fecha
+  if(/(que hora es|dime la hora|me dices la hora)/.test(lower)){
+    agregarMensajeUsuario(pregunta);
+    agregarMensajeIA(`Son las ${formatoHoraPersonalizado()}. ¿Necesitas algo más?`, "Reloj");
+    cajaTexto.value=""; ajustarAlturaTextarea(); return;
+  }
+  if(/(que dia es|que fecha es|fecha de hoy|dia de hoy|fecha actual|dime la fecha)/.test(lower)){
+    agregarMensajeUsuario(pregunta);
+    agregarMensajeIA(`Hoy es ${formatoFechaPersonalizado()}. ¿En qué más puedo ayudarte?`, "Calendario");
+    cajaTexto.value=""; ajustarAlturaTextarea(); return;
+  }
+
+  // clima
+  const esClima = /(como esta el clima|como está el clima|que clima hace|qué clima hace|que tiempo hace|qué tiempo hace|dime el clima|dime el pronostico|dime el pronóstico|cual es el clima|cuál es el clima|clima en|clima de|clima para|temperatura en|temperatura de|pronostico del clima|pronóstico del clima)/.test(lower);
+  if(esClima){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    mostrarIndicadorEscribiendo("Consultando el clima...");
+    try{ const texto = await consultarClimaPorPregunta(lower); eliminarIndicadorEscribiendo(); agregarMensajeIA(texto,"Clima"); }
+    catch(e){ eliminarIndicadorEscribiendo(); reproducirSonido("error_solicitud"); agregarMensajeIA("No pude consultar el clima ahora mismo. Intenta de nuevo en un momento.","Clima"); }
+    return;
+  }
+
+  // música
+  const consultaMusica = detectarComandoMusica(lower);
+  if(consultaMusica){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    mostrarIndicadorEscribiendo("Buscando música...");
+    const resultados = buscarMusicaWeb(consultaMusica);
+    eliminarIndicadorEscribiendo();
+    agregarMensajeResultadosMusica(consultaMusica, resultados);
+    return;
+  }
+
+  // comando personalizado
+  const cmd = buscarComandoPersonalizado(lower);
+  if(cmd){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    const respuesta = await ejecutarAccionComando(cmd);
+    agregarMensajeIA(respuesta, "Comando: "+cmd.nombre);
+    return;
+  }
+
+  // abrir sitio ("abre X")
+  const mAbrir = lower.match(/^(?:abre|abrir|ábreme|abreme|inicia|iniciar|ejecuta|ejecutar|lanza|lanzar|quiero abrir|puedes abrir|me abres)\s+(.+)$/);
+  if(mAbrir){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    const respuesta = abrirSitioPorNombre(trim(mAbrir[1]));
+    agregarMensajeIA(respuesta, "Navegación");
+    return;
+  }
+
+  // batería
+  if(/(bateria|batería|cuanta carga tengo|cuánta carga tengo|nivel de carga|porcentaje de carga)/.test(lower)){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    const texto = await obtenerInfoBateria();
+    agregarMensajeIA(texto, "Dispositivo");
+    return;
+  }
+
+  // internet
+  if(/(internet|wifi|wi-fi|datos moviles|datos móviles|conexion|conexión|senal|señal|velocidad de red|velocidad de internet)/.test(lower)){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    agregarMensajeIA(obtenerTextoIntensidadSenal(), "Dispositivo");
+    return;
+  }
+
+  // info dispositivo
+  if(/(que dispositivo|qué dispositivo|que telefono|qué teléfono|informacion del dispositivo|información del dispositivo|mi procesador|memoria ram|mi almacenamiento|mi pantalla|mis sensores)/.test(lower)){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    agregarMensajeIA(await obtenerResumenDispositivo(), "Dispositivo");
+    return;
+  }
+
+  // apps instaladas -> no accesible desde un navegador
+  if(/(que aplicaciones tengo|qué aplicaciones tengo|mis aplicaciones|lista de aplicaciones|mis apps|cuantas aplicaciones|cuántas aplicaciones)/.test(lower)){
+    agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+    agregarMensajeIA("Por seguridad, los navegadores no permiten que una página web vea qué aplicaciones tienes instaladas en tu teléfono. Si me dices el nombre de una app, puedo abrirte su versión web o buscarla por ti.", "Dispositivo");
+    return;
+  }
+
+  // envío normal a la IA
+  const modelo = $("#sp_modelo").value;
+  reproducirSonido(servicio==="Morph" ? "enviar_morph" : "enviar_mistral");
+  let mensajeUsuario = pregunta;
+  let adjuntosTexto = "";
+  let archivoGrande = null;
+  const umbral = (tokens_config.FRAGMENT_THRESHOLD_KB||150) * 1024;
+  if(archivosAdjuntos.length>0){
+    const nombres = archivosAdjuntos.map(a=> `${a.nombre} (${formatearTamano(a.tamano)})`);
+    archivosAdjuntos.forEach(a=>{
+      if(a.tamano > umbral) archivoGrande = a;
+      else adjuntosTexto += `Archivo: ${a.nombre}\nContenido:\n${a.contenido}\n\n`;
+    });
+    mensajeUsuario = `Documentos adjuntados: ${nombres.join(", ")}\n${pregunta}`;
+    adjuntosTexto += "---\n";
+  }
+  agregarMensajeUsuario(mensajeUsuario);
+  const adjuntosPrevios = archivosAdjuntos.slice();
+  archivosAdjuntos = [];
+  actualizarVistaAdjuntos();
+  cajaTexto.value = ""; ajustarAlturaTextarea();
+
+  if(archivoGrande){
+    mostrarIndicadorEscribiendo("Preparando documento grande...");
+    await procesarDocumentoFragmentadoUniversal(servicio, archivoGrande.contenido, pregunta, modelo);
+    return;
+  }
+  let preguntaFinal = pregunta;
+  if(adjuntosTexto) preguntaFinal = pregunta + "\n\n" + adjuntosTexto;
+  await llamarServicioIA(servicio, preguntaFinal, modelo);
+}
+
+/* --------------------------------- Diálogos genéricos -------------------------- */
+let elementoConFocoAntesDelDialogo = null;
+function abrirDialogo(id){
+  reproducirSonido("cambio_ventana");
+  elementoConFocoAntesDelDialogo = document.activeElement;
+  const ov = document.getElementById(id);
+  ov.hidden = false;
+  const focoInicial = ov.querySelector("input,select,textarea,button:not(.cerrar-x)");
+  (focoInicial || ov.querySelector(".cerrar-x")).focus();
+  document.addEventListener("keydown", cerrarConEsc);
+}
+function cerrarConEsc(e){
+  if(e.key==="Escape"){
+    const abierto = $$(".overlay").find(o=>!o.hidden);
+    if(abierto) cerrarDialogo(abierto.id);
+  }
+}
+function cerrarDialogo(id){
+  const ov = document.getElementById(id);
+  ov.hidden = true;
+  document.removeEventListener("keydown", cerrarConEsc);
+  if(elementoConFocoAntesDelDialogo) elementoConFocoAntesDelDialogo.focus();
+}
+$$("[data-cerrar]").forEach(el=> el.addEventListener("click", ()=> cerrarDialogo(el.dataset.cerrar)));
+$$(".overlay").forEach(ov=> ov.addEventListener("click", (e)=>{ if(e.target===ov) cerrarDialogo(ov.id); }));
+
+/* --------------------------------- Render de listas (notas/comandos/claves) --- */
+function renderListaNotas(){
+  const cont = $("#lista-notas");
+  const claves = Object.keys(notas);
+  if(!claves.length){ cont.innerHTML = "<p style='color:var(--texto-tenue)'>Aún no tienes notas guardadas.</p>"; return; }
+  cont.innerHTML = "";
+  claves.sort().forEach(titulo=>{
+    const item = document.createElement("div"); item.className="item-nota";
+    item.innerHTML = `<div class="info"><span class="titulo"></span></div>
+      <button class="mini-btn" data-abrir>Abrir</button>
+      <button class="mini-btn rojo" data-borrar>Borrar</button>`;
+    item.querySelector(".titulo").textContent = titulo;
+    item.querySelector("[data-abrir]").addEventListener("click", ()=>{
+      reproducirSonido("boton");
+      $("#in-nota-titulo").value = titulo;
+      $("#in-nota-contenido").value = notas[titulo].contenido;
+      $("#tit-nota-editar").textContent = "Editar nota";
+      $("#form-nota").dataset.original = titulo;
+      cerrarDialogo("ov-notas"); abrirDialogo("ov-nota-editar");
+    });
+    item.querySelector("[data-borrar]").addEventListener("click", ()=>{
+      reproducirSonido("eliminar_documento");
+      delete notas[titulo]; guardarNotas(); renderListaNotas();
+      mostrarToast("Nota borrada");
+    });
+    cont.appendChild(item);
+  });
+}
+function renderListaComandos(){
+  const cont = $("#lista-comandos");
+  if(!comandos_usuario.length){ cont.innerHTML = "<p style='color:var(--texto-tenue)'>Aún no tienes comandos personalizados.</p>"; return; }
+  cont.innerHTML = "";
+  comandos_usuario.forEach((c, i)=>{
+    const item = document.createElement("div"); item.className="item-comando";
+    item.innerHTML = `<div class="info"><span class="titulo"></span><span></span></div>
+      <button class="mini-btn rojo" data-borrar>Borrar</button>`;
+    item.querySelector(".titulo").textContent = c.nombre;
+    item.querySelectorAll(".info span")[1].textContent = `Disparador: "${c.trigger}"`;
+    item.querySelector("[data-borrar]").addEventListener("click", ()=>{
+      reproducirSonido("eliminar_documento");
+      comandos_usuario.splice(i,1); guardarComandosUsuario(); renderListaComandos();
+    });
+    cont.appendChild(item);
+  });
+}
+function renderListaClaves(){
+  const cont = $("#lista-claves-adicionales");
+  cont.innerHTML = "";
+  ["Mistral AI","Morph"].forEach(serv=>{
+    (claves_adicionales[serv]||[]).forEach((k,i)=>{
+      const item = document.createElement("div"); item.className="item-clave";
+      item.innerHTML = `<div class="info">Clave adicional de ${serv} #${i+1} (••••${k.slice(-4)})</div>
+        <button class="mini-btn rojo" data-borrar>Quitar</button>`;
+      item.querySelector("[data-borrar]").addEventListener("click", ()=>{
+        claves_adicionales[serv].splice(i,1); guardarClavesAdicionales(); renderListaClaves();
+      });
+      cont.appendChild(item);
+    });
+  });
+}
+
+/* --------------------------------- Ajustar textarea --------------------------- */
+function ajustarAlturaTextarea(){
+  const t = $("#edit_pregunta");
+  t.style.height = "auto";
+  t.style.height = Math.min(160, t.scrollHeight) + "px";
+}
+
+/* =========================================================================
+   Conexión de eventos de la interfaz
+   ========================================================================= */
+document.addEventListener("DOMContentLoaded", init);
+
+function init(){
+  // estado inicial de selects
+  $("#sp_servicio").value = servicio_actual;
+  poblarSelectorModelos();
+  $("#txt_titulo").textContent = "Yoni Tech - " + tema_actual;
+
+  $("#sp_servicio").addEventListener("change", ()=>{
+    servicio_actual = $("#sp_servicio").value;
+    guardarConfiguracion();
+    poblarSelectorModelos();
+  });
+  $("#sp_modelo").addEventListener("change", ()=>{
+    modelo_actual = $("#sp_modelo").value; guardarConfiguracion();
+  });
+
+  // reconstruir la conversación guardada
+  conversation_history.forEach(h=>{
+    if(elBienvenida) elBienvenida.remove();
+    const div = document.createElement("div");
+    if(h.role==="user"){
+      div.className="msg msg-usuario";
+      div.innerHTML = `<div class="msg-cabecera">Tú</div><div class="msg-contenido"></div>`;
+      div.querySelector(".msg-contenido").textContent = h.content;
+    } else {
+      div.className="msg msg-ia";
+      div.innerHTML = `<div class="msg-cabecera">Yoni Tech</div><div class="msg-contenido"></div>`;
+      div.querySelector(".msg-contenido").innerHTML = linkificar(h.content);
+    }
+    elConversacion.appendChild(div);
+  });
+  autoScroll();
+
+  // envío de formulario / Enter para enviar
+  $("#fila-inferior").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    reproducirSonido("boton");
+    const p = trim($("#edit_pregunta").value);
+    if(p.length>0 || archivosAdjuntos.length>0) procesarPregunta(p);
+  });
+  $("#edit_pregunta").addEventListener("keydown", (e)=>{
+    if(e.key==="Enter" && !e.shiftKey){
+      e.preventDefault();
+      const p = trim($("#edit_pregunta").value);
+      if(p.length>0 || archivosAdjuntos.length>0) procesarPregunta(p);
+    }
+  });
+  $("#edit_pregunta").addEventListener("input", ajustarAlturaTextarea);
+
+  // botones cabecera / principales
+  $("#btn_salir").addEventListener("click", ()=>{
+    reproducirSonido("boton"); detenerVoz(); detenerDictado();
+    mostrarToast("Sesión visual reiniciada. Tu historial y configuración siguen guardados en este navegador.");
+  });
+  $("#btn_nuevo_chat").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    if(!confirm("¿Iniciar un chat nuevo? Se guardará el actual y comenzarás de cero.")) return;
+    contador_temas++;
+    tema_actual = "Chat " + contador_temas;
+    conversation_history = [];
+    guardarHistorialEnArchivo();
+    elConversacion.innerHTML = "";
+    $("#txt_titulo").textContent = "Yoni Tech - " + tema_actual;
+    mostrarToast("Nuevo chat iniciado");
+  });
+  $("#btn_mas_opciones").addEventListener("click", ()=>{ reproducirSonido("abrir_barra_lateral"); abrirDialogo("ov-menu"); });
+  $("#btn_recargar_modelos").addEventListener("click", recargarModelos);
+  $("#btn_mas").addEventListener("click", ()=>{ reproducirSonido("boton"); abrirDialogo("ov-mas"); });
+  $("#btn_dictado").addEventListener("click", ()=>{ reproducirSonido("boton"); if(!isListening) iniciarDictado(); else detenerDictado(); });
+
+  // menú lateral
+  $$("#ov-menu [data-accion]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      reproducirSonido("boton");
+      const acc = btn.dataset.accion;
+      cerrarDialogo("ov-menu");
+      if(acc==="cambiar-nombre"){ $("#in-nombre").value = nombre_usuario; abrirDialogo("ov-nombre"); }
+      else if(acc==="editar-perfil"){ $("#in-perfil").value = perfil_usuario; abrirDialogo("ov-perfil"); }
+      else if(acc==="gestionar-api"){
+        $("#in-mistral-key").value = MISTRAL_KEY; $("#in-morph-key").value = MORPH_KEY;
+        renderListaClaves(); abrirDialogo("ov-api");
+      }
+      else if(acc==="cambiar-tokens"){
+        $("#in-tokens-mistral").value = tokens_config["Mistral AI"];
+        $("#in-tokens-morph").value = tokens_config["Morph"];
+        abrirDialogo("ov-tokens");
+      }
+      else if(acc==="configurar-voz"){
+        $("#chk-voz-activa").checked = voz_cfg.activada;
+        $("#rango-velocidad").value = voz_cfg.velocidad; $("#lbl-velocidad").textContent = voz_cfg.velocidad;
+        $("#rango-tono").value = voz_cfg.tono; $("#lbl-tono").textContent = voz_cfg.tono;
+        $("#rango-volumen-app").value = volumen_app; $("#lbl-volumen-app").textContent = volumen_app;
+        poblarVocesDisponibles();
+        abrirDialogo("ov-voz");
+      }
+      else if(acc==="comandos"){ renderListaComandos(); abrirDialogo("ov-comandos"); }
+      else if(acc==="notas"){ renderListaNotas(); abrirDialogo("ov-notas"); }
+      else if(acc==="dispositivo"){
+        $("#contenido-dispositivo").textContent = "Cargando...";
+        abrirDialogo("ov-dispositivo");
+        obtenerResumenDispositivo().then(t=> $("#contenido-dispositivo").textContent = t);
+      }
+    });
+  });
+
+  // "Más opciones"
+  $("#op-adjuntar").addEventListener("click", ()=>{
+    reproducirSonido("boton"); cerrarDialogo("ov-mas");
+    if(archivosAdjuntos.length >= MAX_ADJUNTOS){ mostrarToast(`Máximo ${MAX_ADJUNTOS} archivos permitidos`); return; }
+    $("#input_archivo").click();
+  });
+  $("#op-dictado").addEventListener("click", ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); if(!isListening) iniciarDictado(); else detenerDictado(); });
+  $("#op-hablar").addEventListener("click", ()=>{
+    reproducirSonido("boton"); cerrarDialogo("ov-mas");
+    const ultimos = $$(".msg-ia .msg-contenido"); if(!ultimos.length){ mostrarToast("No hay respuestas para leer aún"); return; }
+    hablarTexto(ultimos[ultimos.length-1].textContent);
+  });
+  $("#op-detener-voz").addEventListener("click", ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); detenerVoz(); });
+  $("#op-hora").addEventListener("click", ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); procesarPregunta("que hora es"); });
+  $("#op-fecha").addEventListener("click", ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); procesarPregunta("que fecha es"); });
+  $("#op-bateria").addEventListener("click", async ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); agregarMensajeUsuario("Batería"); agregarMensajeIA(await obtenerInfoBateria(),"Dispositivo"); });
+  $("#op-internet").addEventListener("click", ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); agregarMensajeUsuario("Estado de la conexión"); agregarMensajeIA(obtenerTextoIntensidadSenal(),"Dispositivo"); });
+  $("#op-vibrar").addEventListener("click", ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); mostrarToast(activarVibracion()); });
+  $("#op-linterna").addEventListener("click", async ()=>{ reproducirSonido("boton"); cerrarDialogo("ov-mas"); mostrarToast(await alternarLinterna()); });
+  $("#op-nueva-nota").addEventListener("click", ()=>{
+    reproducirSonido("boton"); cerrarDialogo("ov-mas");
+    $("#in-nota-titulo").value=""; $("#in-nota-contenido").value="";
+    $("#tit-nota-editar").textContent = "Nueva nota";
+    delete $("#form-nota").dataset.original;
+    abrirDialogo("ov-nota-editar");
+  });
+
+  $("#input_archivo").addEventListener("change", (e)=>{ manejarSeleccionArchivos(e.target.files); e.target.value=""; });
+
+  // formulario nombre
+  $("#form-nombre").addEventListener("submit", (e)=>{
+    e.preventDefault(); reproducirSonido("boton");
+    nombre_usuario = trim($("#in-nombre").value); LS.set("yt_nombre_usuario", nombre_usuario);
+    cerrarDialogo("ov-nombre"); mostrarToast("Nombre guardado");
+  });
+  // formulario perfil
+  $("#form-perfil").addEventListener("submit", (e)=>{
+    e.preventDefault(); reproducirSonido("boton");
+    perfil_usuario = trim($("#in-perfil").value); LS.set("yt_perfil_usuario", perfil_usuario);
+    primera_vez_perfil = false; LS.set("yt_primera_vez_perfil", false);
+    cerrarDialogo("ov-perfil"); mostrarToast("Perfil guardado");
+  });
+
+  // gestión de API
+  $("#btn-guardar-api").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    MISTRAL_KEY = trim($("#in-mistral-key").value);
+    MORPH_KEY = trim($("#in-morph-key").value);
+    guardarConfiguracion();
+    cerrarDialogo("ov-api"); mostrarToast("Claves guardadas");
+  });
+  $("#btn-validar-mistral").addEventListener("click", ()=> validarClave("Mistral AI"));
+  $("#btn-validar-morph").addEventListener("click", ()=> validarClave("Morph"));
+
+  // tokens
+  $("#btn-guardar-tokens").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    tokens_config["Mistral AI"] = parseInt($("#in-tokens-mistral").value,10) || 4000;
+    tokens_config["Morph"] = parseInt($("#in-tokens-morph").value,10) || 4000;
+    guardarConfiguracion(); cerrarDialogo("ov-tokens"); mostrarToast("Tokens actualizados");
+  });
+
+  // voz
+  $("#rango-velocidad").addEventListener("input", (e)=> $("#lbl-velocidad").textContent = e.target.value);
+  $("#rango-tono").addEventListener("input", (e)=> $("#lbl-tono").textContent = e.target.value);
+  $("#rango-volumen-app").addEventListener("input", (e)=> $("#lbl-volumen-app").textContent = e.target.value);
+  $("#btn-guardar-voz").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    voz_cfg.activada = $("#chk-voz-activa").checked;
+    voz_cfg.velocidad = parseInt($("#rango-velocidad").value,10);
+    voz_cfg.tono = parseInt($("#rango-tono").value,10);
+    voz_cfg.voiceURI = $("#sel-voz").value;
+    volumen_app = parseInt($("#rango-volumen-app").value,10);
+    guardarVoz(); LS.set("yt_volumen_app", volumen_app);
+    cerrarDialogo("ov-voz"); mostrarToast("Voz configurada");
+  });
+
+  // comandos personalizados
+  $("#btn-nuevo-comando").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    $("#form-comando").reset(); delete $("#form-comando").dataset.editar;
+    $("#tit-comando-editar").textContent = "Nuevo comando";
+    cerrarDialogo("ov-comandos"); abrirDialogo("ov-comando-editar");
+  });
+  $("#form-comando").addEventListener("submit", (e)=>{
+    e.preventDefault(); reproducirSonido("boton");
+    const nuevo = {
+      nombre: trim($("#in-com-nombre").value),
+      trigger: trim($("#in-com-trigger").value).toLowerCase(),
+      accion: $("#sel-com-accion").value,
+      extra: trim($("#in-com-extra").value)
+    };
+    comandos_usuario.push(nuevo); guardarComandosUsuario();
+    cerrarDialogo("ov-comando-editar"); abrirDialogo("ov-comandos"); renderListaComandos();
+    mostrarToast("Comando guardado");
+  });
+
+  // notas
+  $("#btn-nueva-nota").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    $("#in-nota-titulo").value=""; $("#in-nota-contenido").value="";
+    $("#tit-nota-editar").textContent = "Nueva nota";
+    delete $("#form-nota").dataset.original;
+    cerrarDialogo("ov-notas"); abrirDialogo("ov-nota-editar");
+  });
+  $("#form-nota").addEventListener("submit", (e)=>{
+    e.preventDefault(); reproducirSonido("boton");
+    const original = $("#form-nota").dataset.original;
+    const nuevoTitulo = trim($("#in-nota-titulo").value);
+    if(original && original!==nuevoTitulo) delete notas[original];
+    notas[nuevoTitulo] = { contenido: $("#in-nota-contenido").value, extension:"txt", fecha:new Date().toISOString() };
+    guardarNotas();
+    cerrarDialogo("ov-nota-editar"); abrirDialogo("ov-notas"); renderListaNotas();
+    mostrarToast("Nota guardada");
+  });
+
+  // arrastrar y soltar archivos sobre el chat
+  ["dragover","drop"].forEach(ev=> elConversacion.addEventListener(ev, e=> e.preventDefault()));
+  elConversacion.addEventListener("drop", (e)=>{
+    if(e.dataTransfer.files && e.dataTransfer.files.length) manejarSeleccionArchivos(e.dataTransfer.files);
+  });
+
+  // primera vez: pedir perfil
+  if(primera_vez_perfil){
+    setTimeout(()=>{ $("#in-perfil").value = perfil_usuario; abrirDialogo("ov-perfil"); }, 1200);
+  }
+
+  reproducirSonido("cambio_ventana");
+}
+
+})();
+</script>
+</body>
+</html>
