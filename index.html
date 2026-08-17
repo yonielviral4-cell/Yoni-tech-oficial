@@ -209,6 +209,28 @@
 <div class="toast-region" id="toast-region" aria-live="assertive"></div>
 <input type="file" id="input_archivo" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.js,.ts,.py,.html,.htm,.css,.log,.xml,.yml,.yaml,.ini,.java,.c,.cpp,.lua,.sh">
 
+<div class="overlay" id="ov-consentimiento" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-consentimiento" aria-describedby="txt-consentimiento" tabindex="-1">
+    <h2 id="tit-consentimiento">Política de seguridad</h2>
+    <p id="txt-consentimiento">
+      Al continuar, aceptas que el navegador guarde tu información sensible, como datos personales o información
+      sobre tu navegador, con cookies de seguridad.
+    </p>
+    <p class="ayuda">
+      (En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración,
+      tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador,
+      en este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos.)
+    </p>
+    <div class="toggle-row" style="align-items:flex-start;">
+      <label for="chk-consentimiento" style="flex:1;">Estoy de acuerdo con la política de seguridad</label>
+      <span class="switch"><input type="checkbox" id="chk-consentimiento"><span class="slider-tog"></span></span>
+    </div>
+    <div class="fila-2" style="margin-top:14px;">
+      <button type="button" class="btn" style="background:var(--verde); width:100%;" id="btn-aceptar-consentimiento" disabled>Aceptar y continuar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== DIALOGOS ===================== -->
 
 <div class="overlay" id="ov-menu" hidden>
@@ -568,10 +590,55 @@ function guardarClavesAdicionales(){ LS.set("yt_claves_adicionales", claves_adic
 function guardarVoz(){ LS.set("yt_voz", voz_cfg); }
 
 /* -------------------------------- Sonidos -------------------------------- */
-/* El plugin original reproducía archivos .ogg/.mp3/.wav propios. En la web
-   no tenemos esos archivos de audio, así que generamos tonos cortos con la
-   Web Audio API para cada tipo de evento: así SÍ se escucha una señal
-   sonora en cada acción, como pediste, aunque el timbre exacto sea distinto. */
+/* El plugin original usaba 18 archivos .ogg/.mp3/.wav propios guardados en
+   el teléfono. Aquí se reproducen esos MISMOS 18 sonidos si los subes junto
+   a este index.html en una carpeta "sonidos/" de tu repositorio (funciona
+   igual en Render que en GitHub Pages: ambos sirven archivos estáticos).
+   Si un archivo todavía no existe, no se pudo cargar, o el navegador lo
+   bloquea, se usa automáticamente un tono generado con Web Audio API como
+   respaldo — así SIEMPRE se escucha algo, nunca se rompe el flujo. En
+   cuanto subas los archivos reales, empiezan a sonar ellos solos, sin tocar
+   nada más del código. */
+const SONIDOS_BASE = "";
+const SONIDOS_ARCHIVOS = {
+  enviar_mistral:      "enviar-mistral.mp3",
+  enviar_morph:        "enviar-morph.mp3",
+  recibir:             "recibir.mp3",
+  copiar:              "copiar.mp3",
+  dictado_inicio:      "dictado-inicio.mp3",
+  dictado_fin:         "dictado-fin.mp3",
+  dictado_error:       "dictado-error.mp3",
+  modelos_cargados:    "modelos-cargados.mp3",
+  modelos_error:       "modelos-error.mp3",
+  escribiendo:         "escribiendo.mp3",
+  escribiendo2:        "escribiendo2.mp3",
+  escribiendo3:        "escribiendo3.mp3",
+  error_solicitud:     "error-solicitud.mp3",
+  abrir_barra_lateral: "abrir-barra-lateral.mp3",
+  archivo_cargado:     "archivo-cargado.mp3",
+  boton:               "boton.mp3",
+  eliminar_documento:  "eliminar-documento.mp3",
+  cambio_ventana:      "cambio-ventana.mp3"
+};
+/* Usa .mp3 en los 18 archivos (aunque el original tuviera .ogg/.wav) porque
+   mp3 es el único formato que reproducen TODOS los navegadores, incluido
+   Safari/iPhone. Si prefieres conservar .ogg/.wav, solo cambia las
+   extensiones en el objeto de arriba para que coincidan con tus archivos. */
+
+const cacheAudio = {};
+const sonidosQueFallaron = new Set();
+
+function obtenerAudio(tipo){
+  if(cacheAudio[tipo]) return cacheAudio[tipo];
+  const nombre = SONIDOS_ARCHIVOS[tipo];
+  if(!nombre) return null;
+  const a = new Audio(SONIDOS_BASE + nombre);
+  a.preload = "auto";
+  a.addEventListener("error", ()=>{ sonidosQueFallaron.add(tipo); });
+  cacheAudio[tipo] = a;
+  return a;
+}
+
 let audioCtx = null;
 function ctxAudio(){
   if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audioCtx=null; } }
@@ -583,10 +650,10 @@ const PATRONES_SONIDO = {
   dictado_error:[[220,0.18]], modelos_cargados:[[600,0.06],[750,0.06],[900,0.08]],
   modelos_error:[[300,0.2]], error_solicitud:[[260,0.22]], abrir_barra_lateral:[[500,0.06],[650,0.06]],
   archivo_cargado:[[700,0.07],[850,0.07]], boton:[[600,0.05]], eliminar_documento:[[350,0.1]],
-  cambio_ventana:[[450,0.05],[600,0.05]]
+  cambio_ventana:[[450,0.05],[600,0.05]],
+  escribiendo:[[500,0.05]], escribiendo2:[[520,0.05]], escribiendo3:[[540,0.05]]
 };
-function reproducirSonido(tipo){
-  if(!sonido_activado) return;
+function reproducirSonidoGenerado(tipo){
   const patron = PATRONES_SONIDO[tipo]; if(!patron) return;
   const ctx = ctxAudio(); if(!ctx) return;
   let t = ctx.currentTime;
@@ -600,6 +667,22 @@ function reproducirSonido(tipo){
     osc.start(t); osc.stop(t+dur+0.02);
     t += dur;
   });
+}
+function reproducirSonido(tipo){
+  if(!sonido_activado) return;
+  if(!sonidosQueFallaron.has(tipo) && SONIDOS_ARCHIVOS[tipo]){
+    const base = obtenerAudio(tipo);
+    if(base){
+      const inst = base.cloneNode(true);
+      inst.volume = Math.max(0, Math.min(1, volumen_app/100));
+      const p = inst.play();
+      if(p && typeof p.catch === "function"){
+        p.catch(()=>{ sonidosQueFallaron.add(tipo); reproducirSonidoGenerado(tipo); });
+      }
+      return;
+    }
+  }
+  reproducirSonidoGenerado(tipo);
 }
 
 /* --------------------------------- Fecha/hora ---------------------------- */
@@ -757,6 +840,8 @@ function mostrarIndicadorEscribiendo(msg){
   elIndicador.textContent = msg || "Yoni Tech está escribiendo...";
   elConversacion.appendChild(elIndicador);
   autoScroll();
+  const variantes = ["escribiendo","escribiendo2","escribiendo3"];
+  reproducirSonido(variantes[Math.floor(Math.random()*variantes.length)]);
 }
 function actualizarIndicadorEscribiendo(msg){ if(elIndicador) elIndicador.textContent = msg; }
 function eliminarIndicadorEscribiendo(){ if(elIndicador){ elIndicador.remove(); elIndicador=null; } }
@@ -1558,7 +1643,33 @@ function ajustarAlturaTextarea(){
 /* =========================================================================
    Conexión de eventos de la interfaz
    ========================================================================= */
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", ()=>{
+  const yaAceptado = LS.get("yt_consentimiento_aceptado", false);
+  if(yaAceptado){
+    init();
+  } else {
+    configurarDialogoConsentimiento();
+  }
+});
+
+function configurarDialogoConsentimiento(){
+  const overlay = $("#ov-consentimiento");
+  const checkbox = $("#chk-consentimiento");
+  const btnAceptar = $("#btn-aceptar-consentimiento");
+  overlay.hidden = false;
+  overlay.querySelector(".dialogo").focus?.();
+  checkbox.focus();
+  checkbox.addEventListener("change", ()=>{
+    btnAceptar.disabled = !checkbox.checked;
+  });
+  btnAceptar.addEventListener("click", ()=>{
+    if(!checkbox.checked) return;
+    LS.set("yt_consentimiento_aceptado", true);
+    LS.set("yt_consentimiento_fecha", new Date().toISOString());
+    overlay.hidden = true;
+    init();
+  });
+}
 
 function init(){
   // estado inicial de selects
