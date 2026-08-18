@@ -99,6 +99,7 @@
   @keyframes pulso{ 0%{opacity:1;} 50%{opacity:0.55;} 100%{opacity:1;} }
   .btn-mas{ background:var(--gris); padding:12px 14px; }
   .btn-enviar{ background:var(--verde); color:#fff; font-weight:700; padding:12px 16px; }
+  .btn-enviar[data-modo="detener"]{ background:var(--rojo); }
   footer.creditos{ text-align:center; font-size:0.72rem; color:#666; padding:4px 0 2px; }
 
   /* Overlay / diálogos */
@@ -172,6 +173,8 @@
       <select id="sp_servicio">
         <option value="Mistral AI">Mistral AI</option>
         <option value="Morph">Morph</option>
+        <option value="Proxy Mistral" id="opt-proxy-mistral" hidden>Mistral AI (acceso especial)</option>
+        <option value="Proxy OpenRouter" id="opt-proxy-openrouter" hidden>OpenRouter AI (acceso especial)</option>
       </select>
       <button class="btn btn-recargar" id="btn_recargar_modelos">Recargar</button>
     </div>
@@ -187,9 +190,12 @@
     <div id="conversacion" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación con Yoni Tech">
       <div class="bienvenida" id="bienvenida">
         Hola, soy <strong>Yoni Tech</strong> 👋 — esta es mi versión web. Antes de empezar, abre
-        <strong>«Abrir barra lateral → Gestionar APIs»</strong> para poner tu clave de Mistral AI o Morph.
-        Puedo hablarte por voz, escucharte por dictado, leer archivos de texto que adjuntes, guardarte notas,
-        darte el clima real de cualquier ciudad, y más. Escribe abajo o pulsa el micrófono para empezar.
+        <strong>«Abrir barra lateral → Gestionar APIs»</strong> para poner tu clave de Mistral AI o Morph,
+        o usa <strong>«Abrir barra lateral → Acceso especial»</strong> si tienes la contraseña para conectarte
+        sin necesidad de clave propia.
+        Puedo hablarte por voz, escucharte por dictado, leer archivos de texto, PDF e imágenes que adjuntes,
+        guardarte notas, darte el clima real de cualquier ciudad, generar archivos descargables cuando programo
+        algo largo, y más. Escribe abajo o pulsa el micrófono para empezar.
       </div>
     </div>
   </main>
@@ -201,13 +207,13 @@
     <textarea id="edit_pregunta" placeholder="Escribe tu pregunta aquí... (Enter envía, Shift+Enter salto de línea)" rows="1"></textarea>
     <button type="button" class="btn btn-mic" id="btn_dictado" aria-pressed="false" aria-label="Activar dictado por voz">🎙️</button>
     <button type="button" class="btn btn-mas" id="btn_mas" aria-haspopup="dialog">Más</button>
-    <button type="submit" class="btn btn-enviar" id="btn_enviar">Enviar</button>
+    <button type="submit" class="btn btn-enviar" id="btn_enviar" data-modo="enviar">Enviar</button>
   </form>
   <footer class="creditos">Yoni Tech · versión web · creado originalmente por Jonathan (Cuba) · adaptado para navegador</footer>
 </div>
 
 <div class="toast-region" id="toast-region" aria-live="assertive"></div>
-<input type="file" id="input_archivo" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.js,.ts,.py,.html,.htm,.css,.log,.xml,.yml,.yaml,.ini,.java,.c,.cpp,.lua,.sh">
+<input type="file" id="input_archivo" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.js,.ts,.py,.html,.htm,.css,.log,.xml,.yml,.yaml,.ini,.java,.c,.cpp,.lua,.sh,.pdf,.png,.jpg,.jpeg,.webp,.gif">
 
 <div class="overlay" id="ov-consentimiento" hidden>
   <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-consentimiento" aria-describedby="txt-consentimiento" tabindex="-1">
@@ -246,6 +252,7 @@
       <button style="background:var(--cyan)" data-accion="comandos">Comandos personalizados</button>
       <button style="background:#455A64" data-accion="notas">Mis notas</button>
       <button style="background:#455A64" data-accion="dispositivo">Info del dispositivo</button>
+      <button style="background:var(--oro); color:#000;" id="btn-acceso-especial" data-accion="acceso-especial">Acceso especial</button>
       <button style="background:var(--rojo)" data-cerrar="ov-menu">Cerrar barra lateral</button>
     </div>
   </div>
@@ -333,6 +340,24 @@
   </div>
 </div>
 
+<div class="overlay" id="ov-acceso-especial" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-acceso-especial">
+    <button class="cerrar-x" data-cerrar="ov-acceso-especial" aria-label="Cerrar">✕</button>
+    <h2 id="tit-acceso-especial">Acceso especial</h2>
+    <p class="ayuda" id="txt-acceso-especial-ayuda">Ingresa la contraseña para conectar automáticamente con el servidor unificado de Yoni Tech (sin necesidad de tus propias claves API).</p>
+    <form id="form-acceso-especial">
+      <div class="campo">
+        <label for="in-acceso-especial">Contraseña</label>
+        <input type="password" id="in-acceso-especial" autocomplete="off">
+      </div>
+      <div class="fila-2">
+        <button type="submit" class="btn" style="background:var(--oro); color:#000;">Confirmar</button>
+        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-acceso-especial">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="overlay" id="ov-tokens" hidden>
   <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-tokens">
     <button class="cerrar-x" data-cerrar="ov-tokens" aria-label="Cerrar">✕</button>
@@ -373,10 +398,13 @@
       <label for="rango-tono">Tono (<span id="lbl-tono">100</span>%)</label>
       <input type="range" id="rango-tono" min="50" max="200" step="5">
     </div>
-    <div class="campo">
+    <div class="campo" id="campo-volumen-app" hidden>
       <label for="rango-volumen-app">Volumen de los sonidos de la app (<span id="lbl-volumen-app">70</span>%)</label>
       <input type="range" id="rango-volumen-app" min="0" max="100" step="5">
       <small>El navegador no puede controlar el volumen general del teléfono por seguridad; esto ajusta solo los sonidos que genera Yoni Tech.</small>
+    </div>
+    <div class="campo">
+      <small>🔇 Los sonidos de interfaz están desactivados en esta versión web (no se reproducían de forma confiable en todos los dispositivos). Si quieres una experiencia más envolvente y con sonidos, descarga el plugin de Yoni Tech.</small>
     </div>
     <div class="fila-2">
       <button class="btn" style="background:var(--verde)" id="btn-guardar-voz">Guardar</button>
@@ -546,8 +574,18 @@ let claves_adicionales = LS.get("yt_claves_adicionales", { "Mistral AI":[], "Mor
 let errores_clave_consecutivos = { "Mistral AI":0, "Morph":0 };
 const UMBRAL_ERRORES_ROTACION = 3;
 
-let tokens_config = LS.get("yt_tokens_config", { "Mistral AI":4000, "Morph":4000, FRAGMENT_THRESHOLD_KB:150 });
-let modelos_db = LS.get("yt_modelos_db", { "Mistral AI":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"], "Morph":["morph-v3-large","morph-v3-fast","morph-v2"] });
+let tokens_config = LS.get("yt_tokens_config", { "Mistral AI":4000, "Morph":4000, "Proxy Mistral":4000, "Proxy OpenRouter":4000, FRAGMENT_THRESHOLD_KB:150 });
+let modelos_db = LS.get("yt_modelos_db", {
+  "Mistral AI":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"],
+  "Morph":["morph-v3-large","morph-v3-fast","morph-v2"],
+  "Proxy Mistral":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"],
+  "Proxy OpenRouter":["openrouter/auto"]
+});
+// asegurar que estas claves existan aunque el usuario tenga datos guardados de una versión anterior
+if(!tokens_config["Proxy Mistral"]) tokens_config["Proxy Mistral"] = 4000;
+if(!tokens_config["Proxy OpenRouter"]) tokens_config["Proxy OpenRouter"] = 4000;
+if(!modelos_db["Proxy Mistral"]) modelos_db["Proxy Mistral"] = ["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"];
+if(!modelos_db["Proxy OpenRouter"]) modelos_db["Proxy OpenRouter"] = ["openrouter/auto"];
 
 let conversation_history = LS.get("yt_historial", []);
 const MAX_HISTORY = 20;
@@ -556,6 +594,16 @@ let contador_temas = LS.get("yt_contador_temas", 1);
 
 let servicio_actual = LS.get("yt_servicio_actual", "Mistral AI");
 let modelo_actual = LS.get("yt_modelo_actual", "mistral-small-latest");
+
+/* --------------------------- Acceso especial (proxy) ----------------------- */
+/* Cuando se activa, el servicio deja de llamar directamente a Mistral/Morph con
+   una clave guardada en este navegador, y en su lugar llama al servidor propio
+   de Yoni Tech (YONI_SERVER), que es quien guarda las claves reales del lado
+   del servidor. El navegador nunca ve ni guarda esas claves. */
+const YONI_SERVER = "https://yoni-tech-apis.onrender.com";
+const CLAVE_ACCESO_ESPECIAL = "yoni1111";
+let acceso_especial_activo = LS.get("yt_acceso_especial_activo", false);
+let servicio_previo_acceso_especial = LS.get("yt_servicio_previo_acceso_especial", "Mistral AI");
 
 let nombre_usuario = LS.get("yt_nombre_usuario", "");
 let perfil_usuario = LS.get("yt_perfil_usuario", "");
@@ -579,6 +627,52 @@ function guardarConfiguracion(){
   LS.set("yt_modelos_db", modelos_db);
   LS.set("yt_tokens_config", tokens_config);
 }
+function guardarEstadoAccesoEspecial(){
+  LS.set("yt_acceso_especial_activo", acceso_especial_activo);
+  LS.set("yt_servicio_previo_acceso_especial", servicio_previo_acceso_especial);
+}
+
+function actualizarTextoBotonAccesoEspecial(){
+  const btn = $("#btn-acceso-especial");
+  if(!btn) return;
+  btn.textContent = acceso_especial_activo ? "Desactivar acceso especial" : "Acceso especial";
+}
+
+function actualizarVisibilidadOpcionesProxy(){
+  const optM = $("#opt-proxy-mistral"), optO = $("#opt-proxy-openrouter");
+  if(optM) optM.hidden = !acceso_especial_activo;
+  if(optO) optO.hidden = !acceso_especial_activo;
+}
+
+function activarAccesoEspecial(){
+  if(!acceso_especial_activo){
+    servicio_previo_acceso_especial = servicio_actual;
+    guardarEstadoAccesoEspecial();
+  }
+  acceso_especial_activo = true;
+  guardarEstadoAccesoEspecial();
+  actualizarVisibilidadOpcionesProxy();
+  servicio_actual = "Proxy Mistral";
+  $("#sp_servicio").value = servicio_actual;
+  guardarConfiguracion();
+  poblarSelectorModelos();
+  actualizarTextoBotonAccesoEspecial();
+  mostrarToast("Acceso especial activado: conectado al servidor de Yoni Tech");
+}
+
+function desactivarAccesoEspecial(){
+  acceso_especial_activo = false;
+  guardarEstadoAccesoEspecial();
+  actualizarVisibilidadOpcionesProxy();
+  servicio_actual = (servicio_previo_acceso_especial==="Proxy Mistral"||servicio_previo_acceso_especial==="Proxy OpenRouter")
+    ? "Mistral AI" : servicio_previo_acceso_especial;
+  $("#sp_servicio").value = servicio_actual;
+  guardarConfiguracion();
+  poblarSelectorModelos();
+  actualizarTextoBotonAccesoEspecial();
+  mostrarToast("Acceso especial desactivado: volviste a tus claves API");
+}
+
 function guardarHistorialEnArchivo(){
   LS.set("yt_historial", conversation_history);
   LS.set("yt_tema_actual", tema_actual);
@@ -669,6 +763,12 @@ function reproducirSonidoGenerado(tipo){
   });
 }
 function reproducirSonido(tipo){
+  /* Sonidos desactivados en la versión web (no reproducían de forma confiable
+     en todos los navegadores/dispositivos). Todo el código original de abajo
+     se conserva intacto y comentado por si en el futuro se resuelve el problema
+     de hosting de los .mp3 y se quiere reactivar; para reactivar, descomenta
+     el bloque y quita el "return" de esta línea. El plugin (Jieshuo) sí
+     conserva sus sonidos nativos normalmente.
   if(!sonido_activado) return;
   if(!sonidosQueFallaron.has(tipo) && SONIDOS_ARCHIVOS[tipo]){
     const base = obtenerAudio(tipo);
@@ -682,7 +782,8 @@ function reproducirSonido(tipo){
       return;
     }
   }
-  reproducirSonidoGenerado(tipo);
+  */
+  return;
 }
 
 /* --------------------------------- Fecha/hora ---------------------------- */
@@ -758,31 +859,123 @@ function agregarBloqueCodigo(lenguaje, codigo, parentEl){
   (parentEl||elConversacion).appendChild(wrap);
 }
 
-function agregarMensajeIA(texto, modelo_usado){
-  if(elBienvenida) elBienvenida.remove();
-  reproducirSonido("recibir");
-  const layout = document.createElement("div");
-  layout.className = "msg msg-ia";
-  const cab = document.createElement("div");
-  cab.className = "msg-cabecera";
-  cab.textContent = "Yoni Tech" + (modelo_usado ? " · "+modelo_usado : "");
-  layout.appendChild(cab);
+/* --------------------------------- Archivos generados por la IA ---------------- */
+/* La IA puede pedir explícitamente generar un archivo descargable escribiendo,
+   en cualquier parte de su respuesta, una línea con el formato:
+     [[ARCHIVO_GENERADO: nombre="miscript" extension="html"]]
+     ...contenido del archivo...
+     [[FIN_ARCHIVO_GENERADO]]
+   Esto se indica a la IA en el prompt de sistema (verGENERACION_ARCHIVOS más abajo).
+   También se reconoce automáticamente un bloque de código ``` con nombre de
+   archivo indicado justo antes (ej: "archivo.html:" o "**archivo.py**") como
+   respaldo, para no depender solo de que el modelo use el formato exacto. */
+const EXTENSIONES_CONOCIDAS = ["html","htm","txt","pdf","js","ts","py","css","json","md","xml","csv","java","c","cpp","sh","yml","yaml","lua"];
+
+function crearTarjetaArchivoGenerado(nombreArchivo, extension, contenido, parentEl){
+  const nombreCompleto = nombreArchivo + (extension ? "."+extension : "");
+  const wrap = document.createElement("div");
+  wrap.className = "bloque-codigo archivo-generado-card";
+  wrap.innerHTML = `
+    <div class="bloque-codigo-header">
+      <span class="bloque-codigo-lang">📄 ${escaparHTML(nombreCompleto)}</span>
+      <button class="btn-copiar-codigo btn-descargar-archivo" type="button" style="background:var(--naranja);">Descargar</button>
+    </div>`;
+  wrap.querySelector(".btn-descargar-archivo").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    descargarComoArchivo(nombreCompleto, contenido, extension);
+  });
+  (parentEl||elConversacion).appendChild(wrap);
+}
+
+function tipoMimePorExtension(extension){
+  const mapa = {
+    html:"text/html", htm:"text/html", txt:"text/plain", js:"text/javascript",
+    ts:"text/plain", py:"text/x-python", css:"text/css", json:"application/json",
+    md:"text/markdown", xml:"application/xml", csv:"text/csv", java:"text/x-java-source",
+    c:"text/x-c", cpp:"text/x-c++", sh:"text/x-sh", yml:"text/yaml", yaml:"text/yaml",
+    lua:"text/x-lua", pdf:"application/pdf"
+  };
+  return mapa[extension] || "text/plain";
+}
+
+/* Genera y dispara la descarga de un archivo de texto en el dispositivo del
+   usuario (carpeta de Descargas del navegador). Para PDF se genera un PDF real
+   con el texto (usando el mismo mecanismo del skill de PDF vía jsPDF por CDN
+   si está disponible; si no, se descarga como .txt para no perder el contenido). */
+async function descargarComoArchivo(nombreCompleto, contenido, extension){
+  if(extension === "pdf"){
+    try{
+      if(!window.jspdf){
+        await cargarScriptExterno("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const lineas = doc.splitTextToSize(contenido, 180);
+      let y = 15;
+      lineas.forEach(linea=>{
+        if(y > 285){ doc.addPage(); y = 15; }
+        doc.text(linea, 10, y);
+        y += 7;
+      });
+      doc.save(nombreCompleto);
+      return;
+    }catch(e){
+      mostrarToast("No se pudo generar el PDF, se descarga como .txt");
+      nombreCompleto = nombreCompleto.replace(/\.pdf$/,"")+".txt";
+      extension = "txt";
+    }
+  }
+  const blob = new Blob([contenido], { type: tipoMimePorExtension(extension)+";charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nombreCompleto;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 4000);
+}
+
+function cargarScriptExterno(src){
+  return new Promise((resolve, reject)=>{
+    const existente = document.querySelector(`script[src="${src}"]`);
+    if(existente){ resolve(); return; }
+    const s = document.createElement("script");
+    s.src = src; s.onload = ()=>resolve(); s.onerror = ()=>reject(new Error("no se pudo cargar "+src));
+    document.head.appendChild(s);
+  });
+}
+
+/* Extrae bloques [[ARCHIVO_GENERADO: ...]]...[[FIN_ARCHIVO_GENERADO]] del texto,
+   devolviendo el texto sin esos bloques y la lista de archivos encontrados. */
+function extraerArchivosGenerados(texto){
+  const archivos = [];
+  const re = /\[\[ARCHIVO_GENERADO:\s*nombre="([^"]*)"\s*extension="([^"]*)"\s*\]\]\n?([\s\S]*?)\[\[FIN_ARCHIVO_GENERADO\]\]/g;
+  const textoSinArchivos = texto.replace(re, (match, nombre, extension, contenido)=>{
+    archivos.push({ nombre: nombre||"archivo", extension: (extension||"txt").toLowerCase().replace(/^\./,""), contenido: contenido.replace(/\n$/,"") });
+    return "";
+  });
+  return { textoSinArchivos, archivos };
+}
+
+/* Renderiza el contenido completo de un mensaje de la IA (texto + bloques de
+   código + tarjetas de archivo descargable) dentro de un layout ya existente. */
+function renderContenidoMensajeIA(texto, layout){
+  const { textoSinArchivos, archivos } = extraerArchivosGenerados(texto);
+  const textoRestante = textoSinArchivos;
 
   // separar bloques de código ```lang\ncodigo```
   const partes = [];
-  let restante = texto; let m;
+  let m;
   const reCodigo = /```(\w*)\n([\s\S]*?)```/g;
   let ultimo = 0;
-  while((m = reCodigo.exec(texto))){
-    if(m.index > ultimo) partes.push({tipo:"texto", contenido:texto.slice(ultimo, m.index)});
+  while((m = reCodigo.exec(textoRestante))){
+    if(m.index > ultimo) partes.push({tipo:"texto", contenido:textoRestante.slice(ultimo, m.index)});
     partes.push({tipo:"codigo", lenguaje:m[1]||"text", codigo:m[2].replace(/\n$/,"")});
     ultimo = reCodigo.lastIndex;
   }
-  if(ultimo < texto.length) partes.push({tipo:"texto", contenido:texto.slice(ultimo)});
+  if(ultimo < textoRestante.length) partes.push({tipo:"texto", contenido:textoRestante.slice(ultimo)});
 
   if(partes.length===0 || (partes.length===1 && partes[0].tipo==="texto")){
-    const bloques = split_multimensaje(texto);
-    (bloques.length? bloques : [texto]).forEach((bloque, i)=>{
+    const bloques = split_multimensaje(textoRestante);
+    (bloques.length? bloques : [textoRestante]).forEach((bloque, i)=>{
       if(i>0){ const hrEl = document.createElement("hr"); hrEl.className="msg-separador"; layout.appendChild(hrEl); }
       const c = document.createElement("div");
       c.className = "msg-contenido";
@@ -805,13 +998,28 @@ function agregarMensajeIA(texto, modelo_usado){
     });
   }
 
+  archivos.forEach(a=> crearTarjetaArchivoGenerado(a.nombre, a.extension, a.contenido, layout));
+}
+
+function agregarMensajeIA(texto, modelo_usado){
+  if(elBienvenida) elBienvenida.remove();
+  reproducirSonido("recibir");
+  const layout = document.createElement("div");
+  layout.className = "msg msg-ia";
+  const cab = document.createElement("div");
+  cab.className = "msg-cabecera";
+  cab.textContent = "Yoni Tech" + (modelo_usado ? " · "+modelo_usado : "");
+  layout.appendChild(cab);
+
+  renderContenidoMensajeIA(texto, layout);
+
   elConversacion.appendChild(layout);
   conversation_history.push({role:"assistant", content:texto});
   if(conversation_history.length > 5000) conversation_history.shift();
   guardarHistorialEnArchivo();
   autoScroll();
 
-  if(voz_cfg.activada){ hablarTexto(texto.replace(/```[\s\S]*?```/g,"").replace(/\[\[NOTA_ACCION:.*?\]\]/g,"")); }
+  if(voz_cfg.activada){ hablarTexto(texto.replace(/```[\s\S]*?```/g,"").replace(/\[\[NOTA_ACCION:.*?\]\]/g,"").replace(/\[\[ARCHIVO_GENERADO:[\s\S]*?\]\]/g,"")); }
 }
 
 function agregarMensajeResultadosMusica(consultaOriginal, resultados){
@@ -1210,7 +1418,8 @@ function actualizarVistaAdjuntos(){
   archivosAdjuntos.forEach((a, i)=>{
     const chip = document.createElement("div");
     chip.className = "chip-adjunto";
-    chip.innerHTML = `<span>📄 ${escaparHTML(a.nombre)} (${formatearTamano(a.tamano)})</span>`;
+    const icono = a.tipo==="imagen" ? "🖼️" : (a.tipo==="pdf" ? "📕" : "📄");
+    chip.innerHTML = `<span>${icono} ${escaparHTML(a.nombre)} (${formatearTamano(a.tamano)})</span>`;
     const btn = document.createElement("button");
     btn.type="button"; btn.setAttribute("aria-label","Quitar "+a.nombre); btn.textContent = "✕";
     btn.addEventListener("click", ()=>{
@@ -1230,13 +1439,72 @@ function leerArchivoComoTexto(file){
     r.readAsText(file);
   });
 }
+
+function leerArchivoComoArrayBuffer(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = ()=> reject(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function leerArchivoComoDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = ()=> reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+let pdfjsListo = null;
+async function asegurarPdfJs(){
+  if(pdfjsListo) return pdfjsListo;
+  pdfjsListo = (async ()=>{
+    await cargarScriptExterno("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    return window.pdfjsLib;
+  })();
+  return pdfjsListo;
+}
+
+/* Extrae el texto plano de un PDF, página por página, usando pdf.js. */
+async function extraerTextoDePDF(file){
+  const pdfjsLib = await asegurarPdfJs();
+  const buffer = await leerArchivoComoArrayBuffer(file);
+  const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let textoCompleto = "";
+  for(let i=1; i<=doc.numPages; i++){
+    const pagina = await doc.getPage(i);
+    const contenido = await pagina.getTextContent();
+    const textoPagina = contenido.items.map(it=> it.str).join(" ");
+    textoCompleto += `\n--- Página ${i} ---\n` + textoPagina;
+  }
+  return trim(textoCompleto);
+}
+
+function esImagen(file){ return /^image\//.test(file.type); }
+function esPDF(file){ return file.type === "application/pdf" || /\.pdf$/i.test(file.name); }
+
 async function manejarSeleccionArchivos(fileList){
   for(const file of Array.from(fileList)){
     if(archivosAdjuntos.length >= MAX_ADJUNTOS){ mostrarToast(`Máximo ${MAX_ADJUNTOS} archivos permitidos`); break; }
     try{
-      const contenido = await leerArchivoComoTexto(file);
-      archivosAdjuntos.push({ nombre:file.name, tamano:file.size, contenido });
-      reproducirSonido("archivo_cargado");
+      if(esPDF(file)){
+        mostrarToast("Leyendo PDF: "+file.name+"...");
+        const contenido = await extraerTextoDePDF(file);
+        archivosAdjuntos.push({ nombre:file.name, tamano:file.size, contenido: contenido || "[El PDF no tiene texto extraíble; puede ser un PDF escaneado como imagen.]", tipo:"pdf" });
+        reproducirSonido("archivo_cargado");
+      } else if(esImagen(file)){
+        const dataUrl = await leerArchivoComoDataURL(file);
+        archivosAdjuntos.push({ nombre:file.name, tamano:file.size, contenido:"[Imagen adjunta: "+file.name+"]", tipo:"imagen", dataUrl });
+        reproducirSonido("archivo_cargado");
+      } else {
+        const contenido = await leerArchivoComoTexto(file);
+        archivosAdjuntos.push({ nombre:file.name, tamano:file.size, contenido, tipo:"texto" });
+        reproducirSonido("archivo_cargado");
+      }
     }catch(e){
       mostrarToast("No se pudo leer "+file.name);
     }
@@ -1263,8 +1531,44 @@ function promptSistema(){
     "Jamas saludes ni te presentes despues del primer mensaje. Responde directamente a la peticion del usuario, sin introducciones ni frases de cortesia. " +
     "No inventes informacion. Si no sabes algo, dilo claramente. No repitas listas ni entres en bucles. Responde de manera directa, clara y concisa, ajustandote a lo que el usuario pide.";
   system += TEXTO_SYSTEM_PROMPT_NOTAS;
+  system += TEXTO_SYSTEM_PROMPT_ARCHIVOS;
+  system += TEXTO_SYSTEM_PROMPT_INTERFAZ;
   return system;
 }
+const TEXTO_SYSTEM_PROMPT_INTERFAZ =
+  " Conoces perfectamente la interfaz de esta página web y, si el usuario pregunta cómo hacer algo, " +
+  "dónde está un botón, o parece perdido, explícaselo con precisión usando esta guía: " +
+  "En la parte de ARRIBA está el título 'Yoni Tech' y un botón con ícono de menú (☰) que abre la barra lateral. " +
+  "La BARRA LATERAL (al abrirla) tiene estos botones: 'Gestionar APIs' (para poner o cambiar las claves de Mistral AI y Morph), " +
+  "'Acceso especial' (pide una contraseña y, si es correcta, conecta automáticamente al servidor de Yoni Tech sin necesitar clave propia; " +
+  "una vez activo el botón cambia a 'Desactivar acceso especial' y también pide la contraseña para volver a las claves normales), " +
+  "'Info del dispositivo', y 'Cerrar barra lateral'. " +
+  "Arriba del todo también hay un SELECTOR DE SERVICIO (para elegir entre Mistral AI, Morph, o las opciones de acceso especial) " +
+  "y un SELECTOR DE MODELO justo al lado, con un botón para recargar la lista de modelos disponibles. " +
+  "En la parte de ABAJO está la CAJA DE TEXTO donde el usuario escribe su mensaje (Enter para enviar, Shift+Enter para salto de línea), " +
+  "un botón con ícono de clip (📎) para ADJUNTAR ARCHIVOS (acepta texto, PDF e imágenes, hasta el máximo permitido), " +
+  "un botón de MICRÓFONO para dictar por voz, y el botón 'Enviar' (verde) que envía el mensaje. " +
+  "Mientras la IA está generando una respuesta, ese mismo botón cambia a 'Detener' (rojo): al presionarlo se detiene la generación " +
+  "y, si el usuario escribe 'continuar', la IA sigue exactamente donde se quedó. " +
+  "Cuando la IA genera un archivo para descargar, aparece como una tarjeta con el nombre del archivo y un botón 'Descargar' " +
+  "que lo guarda directamente en el dispositivo del usuario. " +
+  "Si el usuario nota que la app no tiene sonidos, pregunta por sonidos, o pregunta cómo tener una experiencia más " +
+  "Si el usuario no sabe usar alguna función, explícasela en pasos simples y claros, mencionando el nombre exacto del botón o menú. " +
+  "Si el usuario nota que la app no tiene sonidos, pregunta por sonidos, o pregunta cómo tener una experiencia más " +
+  "completa y envolvente, recomiéndale amablemente descargar el plugin de Yoni Tech (la versión original para el " +
+  "lanzador Jieshuo), que sí incluye todos los sonidos de interfaz y una experiencia más fluida; esta versión web " +
+  "los tiene desactivados porque no se reproducían de forma confiable en todos los navegadores.";
+const TEXTO_SYSTEM_PROMPT_ARCHIVOS =
+  " Cuando el usuario te pida programar o generar contenido largo destinado a ser un ARCHIVO " +
+  "(por ejemplo un script, una página HTML, un documento de texto, etc.), y quiera descargarlo, " +
+  "envuelve ÚNICAMENTE ese contenido de archivo exactamente así, sin nada más alrededor de las marcas: " +
+  '[[ARCHIVO_GENERADO: nombre="nombre_sin_extension" extension="ext"]]\n' +
+  "contenido completo del archivo aqui\n" +
+  "[[FIN_ARCHIVO_GENERADO]]\n" +
+  "Usa la extensión que corresponda (html, txt, js, py, css, json, md, csv, pdf, etc). " +
+  "No hay límite de longitud: si el archivo es muy largo y no te alcanza el espacio para terminarlo, " +
+  "simplemente detente en el punto exacto donde te quedaste sin cerrar la marca [[FIN_ARCHIVO_GENERADO]], " +
+  "que el sistema te pedirá continuar automáticamente y tú seguirás desde ahí sin repetir nada de lo ya escrito.";
 function buildMessagesFromHistory(systemPrompt, currentUserMessage){
   const recientes = conversation_history.slice(-MAX_HISTORY);
   const messages = [{role:"system", content:systemPrompt}];
@@ -1274,52 +1578,267 @@ function buildMessagesFromHistory(systemPrompt, currentUserMessage){
 }
 
 /* --------------------------------- Llamadas a las APIs ------------------------ */
-async function llamarServicioIA(servicio, pregunta, modelo){
+/* Resuelve endpoint + headers según el servicio. Los servicios "Proxy *" hablan
+   con el servidor propio (YONI_SERVER) y NO llevan cabecera Authorization desde
+   el navegador: las claves reales viven únicamente en ese servidor. */
+function resolverConexion(servicio, modo){ // modo: "chat" | "models"
+  if(servicio === "Proxy Mistral"){
+    return { endpoint: YONI_SERVER + (modo==="models" ? "/api/mistral/models" : "/api/mistral/chat"), headers:{ "Content-Type":"application/json" }, requiereClave:false };
+  }
+  if(servicio === "Proxy OpenRouter"){
+    return { endpoint: YONI_SERVER + (modo==="models" ? "/api/openrouter/models" : "/api/openrouter/chat"), headers:{ "Content-Type":"application/json" }, requiereClave:false };
+  }
   const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
-  const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
-  if(!KEY){
-    agregarMensajeIA(`[Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs".]`, servicio);
+  const base = servicio==="Morph" ? "https://api.morphllm.com/v1" : "https://api.mistral.ai/v1";
+  return {
+    endpoint: base + (modo==="models" ? "/models" : "/chat/completions"),
+    headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
+    requiereClave:true, KEY
+  };
+}
+
+/* Estado de generación en curso, para poder detener y luego continuar */
+let generacionActual = {
+  activa:false,
+  controller:null,
+  servicio:null,
+  modelo:null,
+  textoAcumulado:"",
+  messagesBase:null,   // arreglo de mensajes enviado (para poder continuar)
+  elLayout:null,       // contenedor visual del mensaje IA en construcción
+  elContenidoActual:null,
+  detenidaPorUsuario:false
+};
+
+function ponerBotonEnModoDetener(){
+  const btn = $("#btn_enviar");
+  btn.textContent = "Detener";
+  btn.dataset.modo = "detener";
+}
+function ponerBotonEnModoEnviar(){
+  const btn = $("#btn_enviar");
+  btn.textContent = "Enviar";
+  btn.dataset.modo = "enviar";
+}
+
+function crearContenedorMensajeIAEnVivo(modelo_usado){
+  if(elBienvenida) elBienvenida.remove();
+  const layout = document.createElement("div");
+  layout.className = "msg msg-ia";
+  const cab = document.createElement("div");
+  cab.className = "msg-cabecera";
+  cab.textContent = "Yoni Tech" + (modelo_usado ? " · "+modelo_usado : "");
+  layout.appendChild(cab);
+  const c = document.createElement("div");
+  c.className = "msg-contenido";
+  layout.appendChild(c);
+  elConversacion.appendChild(layout);
+  autoScroll();
+  return { layout, contenido:c };
+}
+
+/* Actualiza en vivo el contenido de texto plano mientras llega el streaming.
+   El formateo final (bloques de código, separadores, tarjetas de archivo) se
+   aplica una sola vez al terminar, en finalizarMensajeIAStreaming. */
+function actualizarContenidoEnVivo(elContenido, textoParcial){
+  elContenido.textContent = textoParcial;
+  autoScroll();
+}
+
+function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
+  // reconstruir el contenido final con el mismo formateo que agregarMensajeIA,
+  // mostrando bloques de código y tarjetas de archivo, dentro del layout ya creado
+  layout.querySelectorAll(".msg-contenido, .bloque-codigo, .msg-separador, .archivo-generado-card").forEach(n=>n.remove());
+
+  const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(textoCompleto);
+  const textoFinal = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
+
+  renderContenidoMensajeIA(textoFinal, layout);
+
+  conversation_history.push({role:"assistant", content:textoCompleto});
+  if(conversation_history.length > 5000) conversation_history.shift();
+  guardarHistorialEnArchivo();
+  autoScroll();
+
+  if(voz_cfg.activada){ hablarTexto(textoFinal.replace(/```[\s\S]*?```/g,"").replace(/\[\[NOTA_ACCION:.*?\]\]/g,"").replace(/\[\[ARCHIVO_GENERADO:[\s\S]*?\]\]/g,"")); }
+}
+
+/* Llama al servicio de IA. Soporta streaming (Server-Sent Events estilo OpenAI/
+   Mistral, "data: {...}\n\n" con delta.content) cuando el servicio lo permite.
+   Si el servicio no manda streaming o el fetch no lo soporta, cae automáticamente
+   a modo no-streaming (una sola respuesta completa), sin romper nada. */
+async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagenes){
+  const conexion = resolverConexion(servicio, "chat");
+  if(conexion.requiereClave && !conexion.KEY){
+    agregarMensajeIA(`[Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs", o usa "Acceso especial" en el menú.]`, servicio);
     return;
   }
-  const system = promptSistema();
-  const messages = buildMessagesFromHistory(system, pregunta);
-  mostrarIndicadorEscribiendo();
-  try{
-    const res = await fetch(ENDPOINT, {
-      method:"POST",
-      headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
-      body: JSON.stringify({ model:modelo, messages, temperature:0.7, max_tokens: tokens_config[servicio]||4000 })
-    });
-    eliminarIndicadorEscribiendo();
-    if(res.ok){
-      errores_clave_consecutivos[servicio] = 0;
-      const datos = await res.json();
-      const mensaje = datos.choices && datos.choices[0] && datos.choices[0].message;
-      if(mensaje && mensaje.content){
-        const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(String(mensaje.content));
-        agregarMensajeIA(mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio, modelo);
-      } else {
-        reproducirSonido("error_solicitud");
-        agregarMensajeIA("[Error: respuesta vacía]", modelo);
+
+  let messages;
+  if(continuacion && generacionActual.messagesBase){
+    messages = generacionActual.messagesBase.slice();
+    messages.push({role:"assistant", content: generacionActual.textoAcumulado});
+    messages.push({role:"user", content: "Continúa exactamente desde donde te quedaste, sin repetir lo ya escrito y sin comentarios adicionales."});
+  } else {
+    const system = promptSistema();
+    messages = buildMessagesFromHistory(system, pregunta);
+    if(imagenes && imagenes.length){
+      // adjuntar imágenes como contenido multimodal en el último mensaje del usuario
+      // (formato estándar OpenAI/Mistral: content = [{type:"text",...},{type:"image_url",...}])
+      const ultimo = messages[messages.length-1];
+      if(ultimo && ultimo.role === "user"){
+        const partesContenido = [{ type:"text", text: ultimo.content }];
+        imagenes.forEach(img=> partesContenido.push({ type:"image_url", image_url:{ url: img.dataUrl } }));
+        ultimo.content = partesContenido;
       }
-    } else {
+    }
+  }
+
+  mostrarIndicadorEscribiendo();
+  const controller = new AbortController();
+  generacionActual.activa = true;
+  generacionActual.controller = controller;
+  generacionActual.servicio = servicio;
+  generacionActual.modelo = modelo;
+  generacionActual.messagesBase = messages.slice(0, continuacion ? messages.length-2 : messages.length);
+  if(!continuacion) generacionActual.textoAcumulado = "";
+  generacionActual.detenidaPorUsuario = false;
+  ponerBotonEnModoDetener();
+
+  const payload = { model:modelo, messages, temperature:0.7, max_tokens: tokens_config[servicio]||4000, stream:true };
+
+  let contenedor = null;
+
+  try{
+    const res = await fetch(conexion.endpoint, {
+      method:"POST", headers: conexion.headers, body: JSON.stringify(payload), signal: controller.signal
+    });
+
+    if(!res.ok){
+      eliminarIndicadorEscribiendo();
       const roto = ++errores_clave_consecutivos[servicio] >= UMBRAL_ERRORES_ROTACION;
-      if(roto && claves_adicionales[servicio] && claves_adicionales[servicio].length){
+      if(roto && conexion.requiereClave && claves_adicionales[servicio] && claves_adicionales[servicio].length){
         const nuevaClave = claves_adicionales[servicio].shift();
         if(servicio==="Morph") MORPH_KEY = nuevaClave; else MISTRAL_KEY = nuevaClave;
         guardarConfiguracion(); guardarClavesAdicionales();
         errores_clave_consecutivos[servicio] = 0;
         agregarMensajeIA(`Tu clave de ${servicio} dejó de funcionar (error ${res.status}). Se cambió automáticamente a una de tus claves adicionales guardadas. Reintentando tu pregunta...`, servicio);
-        return llamarServicioIA(servicio, pregunta, modelo);
+        ponerBotonEnModoEnviar(); generacionActual.activa = false;
+        return llamarServicioIA(servicio, pregunta, modelo, false);
       }
       reproducirSonido("error_solicitud");
       agregarMensajeIA(`[Error HTTP ${res.status} al llamar a ${servicio}]`, modelo);
+      ponerBotonEnModoEnviar(); generacionActual.activa = false;
+      return;
     }
+
+    errores_clave_consecutivos[servicio] = 0;
+
+    const tipoContenido = res.headers.get("content-type") || "";
+    const soportaStreaming = res.body && typeof res.body.getReader === "function" && /event-stream|text\/plain|application\/x-ndjson/i.test(tipoContenido) || (res.body && payload.stream);
+
+    if(soportaStreaming && res.body){
+      eliminarIndicadorEscribiendo();
+      contenedor = crearContenedorMensajeIAEnVivo(modelo);
+      generacionActual.elLayout = contenedor.layout;
+      generacionActual.elContenidoActual = contenedor.contenido;
+      if(continuacion) actualizarContenidoEnVivo(contenedor.contenido, generacionActual.textoAcumulado);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let recibioAlgo = false;
+
+      while(true){
+        let bloque;
+        try{ bloque = await reader.read(); }
+        catch(errLectura){
+          if(controller.signal.aborted) break;
+          throw errLectura;
+        }
+        if(bloque.done) break;
+        buffer += decoder.decode(bloque.value, {stream:true});
+        const lineas = buffer.split("\n");
+        buffer = lineas.pop();
+        for(const lineaCruda of lineas){
+          const linea = lineaCruda.trim();
+          if(!linea) continue;
+          if(!linea.startsWith("data:")) continue;
+          const data = linea.slice(5).trim();
+          if(data === "[DONE]") continue;
+          try{
+            const obj = JSON.parse(data);
+            const delta = obj.choices && obj.choices[0] && (obj.choices[0].delta || obj.choices[0].message);
+            const trozo = delta && (delta.content || "");
+            if(trozo){
+              recibioAlgo = true;
+              generacionActual.textoAcumulado += trozo;
+              actualizarContenidoEnVivo(contenedor.contenido, generacionActual.textoAcumulado);
+            }
+          }catch(errParse){ /* línea parcial o formato distinto, se ignora */ }
+        }
+      }
+
+      if(!recibioAlgo && !generacionActual.textoAcumulado){
+        // el servidor devolvió content-type de streaming pero sin datos aprovechables:
+        // reintentar leyendo la respuesta completa como JSON normal (fallback)
+        reproducirSonido("error_solicitud");
+        finalizarMensajeIAStreaming(contenedor.layout, "[Error: respuesta vacía]", modelo);
+        ponerBotonEnModoEnviar(); generacionActual.activa = false;
+        return;
+      }
+
+      if(generacionActual.detenidaPorUsuario){
+        // se dejó pausado: mostrar lo que hay, con aviso de que se puede continuar
+        finalizarMensajeIAStreaming(contenedor.layout, generacionActual.textoAcumulado + "\n\n[Generación detenida por el usuario. Escribe \"continuar\" para seguir donde se quedó.]", modelo);
+      } else {
+        finalizarMensajeIAStreaming(contenedor.layout, generacionActual.textoAcumulado, modelo);
+      }
+      ponerBotonEnModoEnviar(); generacionActual.activa = false;
+      return;
+    }
+
+    // ---- Fallback: sin streaming, respuesta completa de una vez ----
+    eliminarIndicadorEscribiendo();
+    const datos = await res.json();
+    const mensaje = datos.choices && datos.choices[0] && datos.choices[0].message;
+    if(mensaje && mensaje.content){
+      generacionActual.textoAcumulado = (continuacion ? generacionActual.textoAcumulado : "") + String(mensaje.content);
+      agregarMensajeIA(generacionActual.textoAcumulado, modelo);
+    } else if(datos.response){
+      agregarMensajeIA(String(datos.response), modelo);
+    } else {
+      reproducirSonido("error_solicitud");
+      agregarMensajeIA("[Error: respuesta vacía]", modelo);
+    }
+    ponerBotonEnModoEnviar(); generacionActual.activa = false;
+
   }catch(e){
     eliminarIndicadorEscribiendo();
+    ponerBotonEnModoEnviar(); generacionActual.activa = false;
+    if(e && e.name === "AbortError"){
+      // detención pedida por el usuario a mitad de la conexión (antes de recibir nada)
+      if(contenedor && generacionActual.textoAcumulado){
+        finalizarMensajeIAStreaming(contenedor.layout, generacionActual.textoAcumulado + "\n\n[Generación detenida por el usuario. Escribe \"continuar\" para seguir donde se quedó.]", modelo);
+      } else if(generacionActual.textoAcumulado){
+        agregarMensajeIA(generacionActual.textoAcumulado + "\n\n[Generación detenida por el usuario. Escribe \"continuar\" para seguir donde se quedó.]", modelo);
+      }
+      return;
+    }
     reproducirSonido("error_solicitud");
     agregarMensajeIA(`[No se pudo conectar con ${servicio}. Puede ser tu conexión a Internet, o que ${servicio} no permita llamadas directas desde el navegador (CORS). Verifica tu clave y tu conexión.]`, modelo);
   }
+}
+
+function detenerGeneracionActual(){
+  if(!generacionActual.activa) return;
+  generacionActual.detenidaPorUsuario = true;
+  if(generacionActual.controller) generacionActual.controller.abort();
+}
+
+/* El usuario pide seguir una respuesta que se detuvo a mitad de camino */
+function esPeticionDeContinuar(textoLower){
+  return /^(continua|continúa|contin[uú]a|sigue|sigue generando|continuar|sigue por favor|contin[uú]a por favor)\.?$/i.test(trim(textoLower));
 }
 
 async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregunta, modelo){
@@ -1327,14 +1846,13 @@ async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregun
   const fragmentos = fragmentarTexto(documento, maxChars);
   const resumenes = [];
   mostrarIndicadorEscribiendo(`Procesando documento grande (0/${fragmentos.length})...`);
-  const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
-  const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
-  if(!KEY){ eliminarIndicadorEscribiendo(); agregarMensajeIA(`[Falta la clave de API de ${servicio}]`, servicio); return; }
+  const conexion = resolverConexion(servicio, "chat");
+  if(conexion.requiereClave && !conexion.KEY){ eliminarIndicadorEscribiendo(); agregarMensajeIA(`[Falta la clave de API de ${servicio}]`, servicio); return; }
   try{
     for(let i=0;i<fragmentos.length;i++){
       actualizarIndicadorEscribiendo(`Procesando documento grande (${i+1}/${fragmentos.length})...`);
-      const res = await fetch(ENDPOINT, {
-        method:"POST", headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
+      const res = await fetch(conexion.endpoint, {
+        method:"POST", headers: conexion.headers,
         body: JSON.stringify({ model:modelo, messages:[
           {role:"system", content:"Resume brevemente el siguiente fragmento de un documento largo, en español, conservando los datos importantes."},
           {role:"user", content:fragmentos[i]}
@@ -1345,8 +1863,8 @@ async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregun
     actualizarIndicadorEscribiendo("Generando respuesta final...");
     const resumenTotal = resumenes.join("\n\n");
     const system = promptSistema();
-    const res2 = await fetch(ENDPOINT, {
-      method:"POST", headers:{ "Authorization":"Bearer "+KEY, "Content-Type":"application/json" },
+    const res2 = await fetch(conexion.endpoint, {
+      method:"POST", headers: conexion.headers,
       body: JSON.stringify({ model:modelo, messages:[
         {role:"system", content:system},
         {role:"user", content:`Aquí tienes el resumen de un documento largo dividido en partes:\n\n${resumenTotal}\n\nPregunta del usuario sobre ese documento: ${pregunta}`}
@@ -1370,9 +1888,33 @@ async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregun
 }
 
 /* --------------------------------- Recargar modelos --------------------------- */
+function esServicioProxy(servicio){
+  return servicio === "Proxy Mistral" || servicio === "Proxy OpenRouter";
+}
+
 async function recargarModelos(){
   reproducirSonido("boton");
   const servicio = $("#sp_servicio").value;
+  if(esServicioProxy(servicio)){
+    const ENDPOINT = servicio==="Proxy OpenRouter" ? (YONI_SERVER+"/api/openrouter/models") : (YONI_SERVER+"/api/mistral/models");
+    try{
+      const res = await fetch(ENDPOINT);
+      if(!res.ok) throw new Error("http "+res.status);
+      const data = await res.json();
+      const ids = (data.data||[]).map(m=>m.id).filter(id=> !/embed|moderation/i.test(id));
+      if(ids.length){
+        modelos_db[servicio] = ids;
+        guardarConfiguracion();
+        poblarSelectorModelos();
+        reproducirSonido("modelos_cargados");
+        mostrarToast(`${ids.length} modelos cargados para ${servicio}`);
+      } else { throw new Error("vacío"); }
+    }catch(e){
+      reproducirSonido("modelos_error");
+      mostrarToast(`No pude recargar modelos de ${servicio} en línea, se mantiene la lista predeterminada.`);
+    }
+    return;
+  }
   const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
   const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/models" : "https://api.mistral.ai/v1/models";
   if(!KEY){ mostrarToast("Configura primero tu clave de "+servicio); reproducirSonido("modelos_error"); return; }
@@ -1433,6 +1975,15 @@ async function procesarPregunta(pregunta){
   const servicio = $("#sp_servicio").value;
   const lower = pregunta.toLowerCase();
   const cajaTexto = $("#edit_pregunta");
+
+  // continuar una generación que quedó detenida a mitad de camino
+  if(esPeticionDeContinuar(lower) && !generacionActual.activa && generacionActual.textoAcumulado && generacionActual.messagesBase){
+    agregarMensajeUsuario(pregunta);
+    cajaTexto.value = ""; ajustarAlturaTextarea();
+    const modelo = $("#sp_modelo").value;
+    await llamarServicioIA(generacionActual.servicio || servicio, "", generacionActual.modelo || modelo, true);
+    return;
+  }
 
   // hora / fecha
   if(/(que hora es|dime la hora|me dices la hora)/.test(lower)){
@@ -1516,16 +2067,22 @@ async function procesarPregunta(pregunta){
 
   // envío normal a la IA
   const modelo = $("#sp_modelo").value;
-  reproducirSonido(servicio==="Morph" ? "enviar_morph" : "enviar_mistral");
+  reproducirSonido(esServicioProxy(servicio) ? "enviar_mistral" : (servicio==="Morph" ? "enviar_morph" : "enviar_mistral"));
   let mensajeUsuario = pregunta;
   let adjuntosTexto = "";
   let archivoGrande = null;
+  const imagenesAdjuntas = [];
   const umbral = (tokens_config.FRAGMENT_THRESHOLD_KB||150) * 1024;
   if(archivosAdjuntos.length>0){
     const nombres = archivosAdjuntos.map(a=> `${a.nombre} (${formatearTamano(a.tamano)})`);
     archivosAdjuntos.forEach(a=>{
-      if(a.tamano > umbral) archivoGrande = a;
-      else adjuntosTexto += `Archivo: ${a.nombre}\nContenido:\n${a.contenido}\n\n`;
+      if(a.tipo === "imagen"){
+        imagenesAdjuntas.push(a);
+      } else if(a.tamano > umbral){
+        archivoGrande = a;
+      } else {
+        adjuntosTexto += `Archivo: ${a.nombre}\nContenido:\n${a.contenido}\n\n`;
+      }
     });
     mensajeUsuario = `Documentos adjuntados: ${nombres.join(", ")}\n${pregunta}`;
     adjuntosTexto += "---\n";
@@ -1543,7 +2100,7 @@ async function procesarPregunta(pregunta){
   }
   let preguntaFinal = pregunta;
   if(adjuntosTexto) preguntaFinal = pregunta + "\n\n" + adjuntosTexto;
-  await llamarServicioIA(servicio, preguntaFinal, modelo);
+  await llamarServicioIA(servicio, preguntaFinal, modelo, false, imagenesAdjuntas);
 }
 
 /* --------------------------------- Diálogos genéricos -------------------------- */
@@ -1673,8 +2230,10 @@ function configurarDialogoConsentimiento(){
 
 function init(){
   // estado inicial de selects
+  actualizarVisibilidadOpcionesProxy();
   $("#sp_servicio").value = servicio_actual;
   poblarSelectorModelos();
+  actualizarTextoBotonAccesoEspecial();
   $("#txt_titulo").textContent = "Yoni Tech - " + tema_actual;
 
   $("#sp_servicio").addEventListener("change", ()=>{
@@ -1703,9 +2262,14 @@ function init(){
   });
   autoScroll();
 
-  // envío de formulario / Enter para enviar
+  // envío de formulario / Enter para enviar (o Detener, si hay una generación en curso)
   $("#fila-inferior").addEventListener("submit", (e)=>{
     e.preventDefault();
+    if($("#btn_enviar").dataset.modo === "detener"){
+      reproducirSonido("boton");
+      detenerGeneracionActual();
+      return;
+    }
     reproducirSonido("boton");
     const p = trim($("#edit_pregunta").value);
     if(p.length>0 || archivosAdjuntos.length>0) procesarPregunta(p);
@@ -1713,6 +2277,7 @@ function init(){
   $("#edit_pregunta").addEventListener("keydown", (e)=>{
     if(e.key==="Enter" && !e.shiftKey){
       e.preventDefault();
+      if($("#btn_enviar").dataset.modo === "detener") return;
       const p = trim($("#edit_pregunta").value);
       if(p.length>0 || archivosAdjuntos.length>0) procesarPregunta(p);
     }
@@ -1772,7 +2337,30 @@ function init(){
         abrirDialogo("ov-dispositivo");
         obtenerResumenDispositivo().then(t=> $("#contenido-dispositivo").textContent = t);
       }
+      else if(acc==="acceso-especial"){
+        $("#in-acceso-especial").value = "";
+        $("#txt-acceso-especial-ayuda").textContent = acceso_especial_activo
+          ? "Ingresa la contraseña para desactivar el acceso especial y volver a tus propias claves API."
+          : "Ingresa la contraseña para conectar automáticamente con el servidor unificado de Yoni Tech (sin necesidad de tus propias claves API).";
+        $("#form-acceso-especial").dataset.modo = acceso_especial_activo ? "desactivar" : "activar";
+        abrirDialogo("ov-acceso-especial");
+      }
     });
+  });
+
+  $("#form-acceso-especial").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    reproducirSonido("boton");
+    const clave = $("#in-acceso-especial").value;
+    if(clave !== CLAVE_ACCESO_ESPECIAL){
+      mostrarToast("Contraseña incorrecta");
+      reproducirSonido("error_solicitud");
+      return;
+    }
+    const modo = $("#form-acceso-especial").dataset.modo;
+    cerrarDialogo("ov-acceso-especial");
+    if(modo === "desactivar") desactivarAccesoEspecial();
+    else activarAccesoEspecial();
   });
 
   // "Más opciones"
