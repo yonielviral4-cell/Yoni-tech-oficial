@@ -97,6 +97,17 @@
   .btn-mic{ background:var(--indigo); padding:12px; font-size:1.05rem; }
   .btn-mic.escuchando{ background:var(--rojo); animation:pulso 1s infinite; }
   @keyframes pulso{ 0%{opacity:1;} 50%{opacity:0.55;} 100%{opacity:1;} }
+  .btn-ir-final{
+    background:var(--indigo); color:#fff; padding:12px; font-size:1.05rem;
+    border-radius:50%; width:44px; height:44px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.35);
+  }
+  .btn-ir-final[hidden]{ display:none; }
+  .btn-ir-final{
+    background:var(--naranja); color:#000; padding:12px; font-size:1.05rem; font-weight:800;
+    border-radius:50%; width:44px; height:44px; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
   .btn-mas{ background:var(--gris); padding:12px 14px; }
   .btn-enviar{ background:var(--verde); color:#fff; font-weight:700; padding:12px 16px; }
   .btn-enviar[data-modo="detener"]{ background:var(--rojo); }
@@ -203,6 +214,7 @@
   <div id="adjuntos-bar" aria-label="Archivos adjuntos"></div>
 
   <form id="fila-inferior" autocomplete="off">
+    <button type="button" class="btn btn-ir-final" id="btn_ir_final" hidden aria-label="Ir al final de la conversación" title="Ir al final">⬇</button>
     <label for="edit_pregunta" class="visually-hidden">Escribe tu pregunta</label>
     <textarea id="edit_pregunta" placeholder="Escribe tu pregunta aquí... (Enter envía, Shift+Enter salto de línea)" rows="1"></textarea>
     <button type="button" class="btn btn-mic" id="btn_dictado" aria-pressed="false" aria-label="Activar dictado por voz">🎙️</button>
@@ -814,8 +826,42 @@ function split_multimensaje(respuesta){
 const elConversacion = $("#conversacion");
 const elBienvenida = $("#bienvenida");
 
+/* --------------------------- Ir al final del chat -------------------------- */
+/* Si el usuario se desplaza hacia arriba para leer mensajes anteriores,
+   dejamos de forzar el scroll automáticamente (ni siquiera durante el
+   streaming de una respuesta) y en su lugar mostramos el botón "Ir al final".
+   Se considera que el usuario está "lejos del final" si faltan más de ~120px
+   para llegar al fondo del chat. */
+const UMBRAL_LEJOS_DEL_FINAL = 120;
+let usuarioLejosDelFinal = false;
+
+function estaLejosDelFinal(){
+  const distanciaAlFondo = elConversacion.scrollHeight - elConversacion.scrollTop - elConversacion.clientHeight;
+  return distanciaAlFondo > UMBRAL_LEJOS_DEL_FINAL;
+}
+
+function actualizarBotonIrAlFinal(){
+  usuarioLejosDelFinal = estaLejosDelFinal();
+  const btn = $("#btn_ir_final");
+  if(!btn) return;
+  btn.hidden = !usuarioLejosDelFinal;
+}
+
+function irAlFinalDelChat(){
+  usuarioLejosDelFinal = false;
+  elConversacion.scrollTop = elConversacion.scrollHeight;
+  actualizarBotonIrAlFinal();
+}
+
 function autoScroll(){
-  requestAnimationFrame(()=>{ elConversacion.scrollTop = elConversacion.scrollHeight; });
+  requestAnimationFrame(()=>{
+    // si el usuario está leyendo mensajes de más atrás, no lo interrumpimos
+    // arrastrándolo al final -- en vez de eso, solo actualizamos el botón
+    // (esto se aplica también mientras la IA está generando/transmitiendo texto)
+    if(usuarioLejosDelFinal){ actualizarBotonIrAlFinal(); return; }
+    elConversacion.scrollTop = elConversacion.scrollHeight;
+    actualizarBotonIrAlFinal();
+  });
 }
 
 function linkificar(texto){
@@ -837,7 +883,9 @@ function agregarMensajeUsuario(texto){
   conversation_history.push({role:"user", content:texto});
   if(conversation_history.length > 5000) conversation_history.shift();
   guardarHistorialEnArchivo();
-  autoScroll();
+  // el usuario acaba de enviar algo: es una accion propia, asi que lo llevamos
+  // al final del chat aunque estuviera leyendo mensajes de mas atras
+  irAlFinalDelChat();
 }
 
 function agregarBloqueCodigo(lenguaje, codigo, parentEl){
@@ -1568,7 +1616,11 @@ const TEXTO_SYSTEM_PROMPT_ARCHIVOS =
   "Usa la extensión que corresponda (html, txt, js, py, css, json, md, csv, pdf, etc). " +
   "No hay límite de longitud: si el archivo es muy largo y no te alcanza el espacio para terminarlo, " +
   "simplemente detente en el punto exacto donde te quedaste sin cerrar la marca [[FIN_ARCHIVO_GENERADO]], " +
-  "que el sistema te pedirá continuar automáticamente y tú seguirás desde ahí sin repetir nada de lo ya escrito.";
+  "que el sistema te pedirá continuar automáticamente y tú seguirás desde ahí sin repetir nada de lo ya escrito. " +
+  "Cuando el usuario adjunte un archivo PDF, el sistema YA extrajo el texto plano de ese PDF automáticamente antes " +
+  "de enviártelo (verás su contenido dentro del mensaje, marcado como 'Archivo: nombre.pdf'). SÍ puedes leer y " +
+  "analizar PDFs perfectamente: nunca digas que no puedes leer o procesar PDFs. Si el texto de un PDF llega vacío " +
+  "o incompleto, es porque el PDF era una imagen escaneada sin texto seleccionable, no porque el sistema no soporte PDFs.";
 function buildMessagesFromHistory(systemPrompt, currentUserMessage){
   const recientes = conversation_history.slice(-MAX_HISTORY);
   const messages = [{role:"system", content:systemPrompt}];
@@ -1578,6 +1630,36 @@ function buildMessagesFromHistory(systemPrompt, currentUserMessage){
 }
 
 /* --------------------------------- Llamadas a las APIs ------------------------ */
+/* Espera ms milisegundos (para espaciar llamadas y evitar 429 de rate limit) */
+function esperar(ms){ return new Promise(resolve=> setTimeout(resolve, ms)); }
+
+/* fetch con reintento automático ante error 429 (demasiadas solicitudes).
+   Lee el header Retry-After si el servidor lo manda; si no, usa backoff
+   exponencial (1s, 2s, 4s...) hasta un máximo de intentos. Esto es lo que
+   corrige el "[Error HTTP 429]" que aparecía al adjuntar PDFs: no es que
+   Mistral no pueda leer el texto extraído del PDF, es que el plan gratuito
+   tiene un límite de solicitudes por segundo/minuto y se excedía al mandar
+   varios fragmentos seguidos sin pausa. */
+async function fetchConReintentos(url, opciones, opts){
+  const maxIntentos = (opts && opts.maxIntentos) || 5;
+  const signal = opciones.signal;
+  for(let intento=0; intento<maxIntentos; intento++){
+    const res = await fetch(url, opciones);
+    if(res.status !== 429) return res;
+    if(signal && signal.aborted) return res;
+    let esperaMs;
+    const retryAfter = res.headers.get("retry-after");
+    if(retryAfter && !isNaN(parseFloat(retryAfter))){
+      esperaMs = parseFloat(retryAfter) * 1000;
+    } else {
+      esperaMs = Math.min(1000 * Math.pow(2, intento), 15000);
+    }
+    if(opts && opts.avisar) opts.avisar(intento+1, maxIntentos, Math.round(esperaMs/1000));
+    if(intento < maxIntentos-1) await esperar(esperaMs);
+    else return res; // se acabaron los intentos, devolvemos la última respuesta (429) tal cual
+  }
+}
+
 /* Resuelve endpoint + headers según el servicio. Los servicios "Proxy *" hablan
    con el servidor propio (YONI_SERVER) y NO llevan cabecera Authorization desde
    el navegador: las claves reales viven únicamente en ese servidor. */
@@ -1637,18 +1719,149 @@ function crearContenedorMensajeIAEnVivo(modelo_usado){
   return { layout, contenido:c };
 }
 
-/* Actualiza en vivo el contenido de texto plano mientras llega el streaming.
-   El formateo final (bloques de código, separadores, tarjetas de archivo) se
-   aplica una sola vez al terminar, en finalizarMensajeIAStreaming. */
-function actualizarContenidoEnVivo(elContenido, textoParcial){
-  elContenido.textContent = textoParcial;
+/* Evita re-renderizar el DOM en cada micro-fragmento del streaming (podrían
+   llegar decenas por segundo); agrupa las actualizaciones cada ~60ms, que
+   sigue siendo imperceptible para el ojo pero mucho más liviano. */
+let _timeoutActualizacionEnVivo = null;
+function programarActualizacionEnVivo(layout, estado){
+  if(_timeoutActualizacionEnVivo) return;
+  _timeoutActualizacionEnVivo = setTimeout(()=>{
+    _timeoutActualizacionEnVivo = null;
+    actualizarContenidoEnVivo(layout, estado.textoAcumulado);
+  }, 60);
+}
+
+/* Actualiza en vivo el contenido mientras llega el streaming, pero ya con
+   estructura (encabezados, separadores, bloques de código) en vez de texto
+   plano -- se va "armando" visualmente igual que se arma la respuesta final,
+   sección por sección, a medida que cada una se completa. Solo la última
+   sección (la que aún se está escribiendo) se muestra como texto simple,
+   porque todavía puede seguir creciendo; las secciones anteriores ya
+   completas se muestran con su formato definitivo (encabezado, código, etc). */
+function actualizarContenidoEnVivo(layout, textoParcial){
+  layout.querySelectorAll(".msg-contenido, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream").forEach(n=>n.remove());
+  renderContenidoEnVivoConEncabezados(textoParcial, layout);
   autoScroll();
 }
 
+/* Divide el texto parcial en secciones por encabezados Markdown (#, ##, ###...)
+   y por párrafos separados con doble salto de línea. Todas las secciones,
+   salvo la última (que aún puede seguir escribiéndose), se consideran
+   "completas" y se renderizan con su formato final; la última se muestra
+   como texto simple mientras sigue llegando. También respeta bloques de
+   código ``` abiertos: si un bloque de código no se ha cerrado todavía, se
+   muestra tal cual (como texto) hasta que llegue su ``` de cierre. */
+function renderContenidoEnVivoConEncabezados(texto, layout){
+  // si hay un bloque de código sin cerrar al final, lo dejamos aparte como
+  // "en progreso" y formateamos solo lo que viene antes de ese bloque abierto
+  const aperturasCodigo = (texto.match(/```/g) || []).length;
+  let textoCompletoParaFormatear = texto;
+  let colaEnProgreso = "";
+  if(aperturasCodigo % 2 === 1){
+    const idx = texto.lastIndexOf("```");
+    textoCompletoParaFormatear = texto.slice(0, idx);
+    colaEnProgreso = texto.slice(idx);
+  }
+
+  // separar por encabezados Markdown, manteniendo el encabezado como inicio de cada sección
+  const lineas = textoCompletoParaFormatear.split("\n");
+  const secciones = [];
+  let actual = [];
+  lineas.forEach(linea=>{
+    if(/^#{1,6}\s+\S/.test(linea) && actual.length){
+      secciones.push(actual.join("\n"));
+      actual = [linea];
+    } else {
+      actual.push(linea);
+    }
+  });
+  if(actual.length) secciones.push(actual.join("\n"));
+
+  // la última sección (o la cola sin formatear) es la que aún se está escribiendo
+  let seccionEnProgreso = "";
+  let seccionesCompletas = secciones;
+  if(!colaEnProgreso && secciones.length){
+    seccionEnProgreso = secciones[secciones.length-1];
+    seccionesCompletas = secciones.slice(0, -1);
+  }
+
+  seccionesCompletas.forEach(seccion=>{
+    if(trim(seccion).length===0) return;
+    renderSeccionConFormato(seccion, layout);
+  });
+
+  const restoEnProgreso = (seccionEnProgreso + colaEnProgreso);
+  if(trim(restoEnProgreso).length){
+    const c = document.createElement("div");
+    c.className = "msg-contenido encabezado-stream";
+    c.textContent = restoEnProgreso;
+    layout.appendChild(c);
+  }
+}
+
+/* Renderiza una sección ya completa (típicamente un encabezado + su párrafo,
+   o un bloque separado por '---'), convirtiendo el encabezado Markdown en un
+   <h3>/<h4> visual y procesando bloques de código dentro de ella si los hay. */
+function renderSeccionConFormato(seccion, layout){
+  const m = seccion.match(/^(#{1,6})\s+(.+)$/m);
+  let cuerpo = seccion;
+  if(m && seccion.trimStart().startsWith(m[0])){
+    const nivel = m[1].length;
+    const tituloTexto = m[2].trim();
+    const h = document.createElement("div");
+    h.className = "encabezado-stream-titulo";
+    h.style.fontWeight = "700";
+    h.style.fontSize = nivel<=2 ? "1.08em" : "1em";
+    h.style.margin = "10px 0 4px";
+    h.style.color = "var(--oro)";
+    h.textContent = tituloTexto;
+    layout.appendChild(h);
+    cuerpo = seccion.slice(seccion.indexOf(m[0]) + m[0].length).replace(/^\n/, "");
+  }
+  if(trim(cuerpo).length === 0) return;
+
+  // procesar bloques de código dentro del cuerpo de esta sección
+  const reCodigo = /```(\w*)\n([\s\S]*?)```/g;
+  let ultimo = 0; let mm;
+  let huboCodigo = false;
+  while((mm = reCodigo.exec(cuerpo))){
+    huboCodigo = true;
+    if(mm.index > ultimo){
+      const textoPrevio = cuerpo.slice(ultimo, mm.index);
+      if(trim(textoPrevio).length){
+        const c = document.createElement("div");
+        c.className = "msg-contenido";
+        c.innerHTML = linkificar(textoPrevio);
+        layout.appendChild(c);
+      }
+    }
+    agregarBloqueCodigo(mm[1]||"text", mm[2].replace(/\n$/,""), layout);
+    ultimo = reCodigo.lastIndex;
+  }
+  if(!huboCodigo){
+    const c = document.createElement("div");
+    c.className = "msg-contenido";
+    c.innerHTML = linkificar(cuerpo);
+    layout.appendChild(c);
+  } else if(ultimo < cuerpo.length){
+    const restante = cuerpo.slice(ultimo);
+    if(trim(restante).length){
+      const c = document.createElement("div");
+      c.className = "msg-contenido";
+      c.innerHTML = linkificar(restante);
+      layout.appendChild(c);
+    }
+  }
+}
+
 function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
+  // cancelar cualquier actualización de streaming programada y pendiente,
+  // para que no se dibuje encima del render final ya formateado
+  if(_timeoutActualizacionEnVivo){ clearTimeout(_timeoutActualizacionEnVivo); _timeoutActualizacionEnVivo = null; }
+
   // reconstruir el contenido final con el mismo formateo que agregarMensajeIA,
   // mostrando bloques de código y tarjetas de archivo, dentro del layout ya creado
-  layout.querySelectorAll(".msg-contenido, .bloque-codigo, .msg-separador, .archivo-generado-card").forEach(n=>n.remove());
+  layout.querySelectorAll(".msg-contenido, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream, .encabezado-stream-titulo").forEach(n=>n.remove());
 
   const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(textoCompleto);
   const textoFinal = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
@@ -1710,12 +1923,18 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
   let contenedor = null;
 
   try{
-    const res = await fetch(conexion.endpoint, {
+    const res = await fetchConReintentos(conexion.endpoint, {
       method:"POST", headers: conexion.headers, body: JSON.stringify(payload), signal: controller.signal
-    });
+    }, { avisar:(intento,total,seg)=> mostrarIndicadorEscribiendo(`${servicio} está saturado (límite de solicitudes). Reintentando en ${seg}s (intento ${intento}/${total})...`) });
 
     if(!res.ok){
       eliminarIndicadorEscribiendo();
+      if(res.status === 429){
+        reproducirSonido("error_solicitud");
+        agregarMensajeIA(`[${servicio} respondió "demasiadas solicitudes" (429) incluso después de varios reintentos automáticos. Esto es un límite temporal de solicitudes por segundo/minuto del plan gratuito -- no significa que no se pudiera leer tu archivo o PDF, ya que el texto se extrae antes de llamar a la IA. Espera unos 20-30 segundos y vuelve a intentarlo.]`, modelo);
+        ponerBotonEnModoEnviar(); generacionActual.activa = false;
+        return;
+      }
       const roto = ++errores_clave_consecutivos[servicio] >= UMBRAL_ERRORES_ROTACION;
       if(roto && conexion.requiereClave && claves_adicionales[servicio] && claves_adicionales[servicio].length){
         const nuevaClave = claves_adicionales[servicio].shift();
@@ -1742,7 +1961,7 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
       contenedor = crearContenedorMensajeIAEnVivo(modelo);
       generacionActual.elLayout = contenedor.layout;
       generacionActual.elContenidoActual = contenedor.contenido;
-      if(continuacion) actualizarContenidoEnVivo(contenedor.contenido, generacionActual.textoAcumulado);
+      if(continuacion) actualizarContenidoEnVivo(contenedor.layout, generacionActual.textoAcumulado);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -1773,7 +1992,7 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
             if(trozo){
               recibioAlgo = true;
               generacionActual.textoAcumulado += trozo;
-              actualizarContenidoEnVivo(contenedor.contenido, generacionActual.textoAcumulado);
+              programarActualizacionEnVivo(contenedor.layout, generacionActual);
             }
           }catch(errParse){ /* línea parcial o formato distinto, se ignora */ }
         }
@@ -1851,31 +2070,44 @@ async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregun
   try{
     for(let i=0;i<fragmentos.length;i++){
       actualizarIndicadorEscribiendo(`Procesando documento grande (${i+1}/${fragmentos.length})...`);
-      const res = await fetch(conexion.endpoint, {
+      // pequeña pausa entre fragmentos (excepto el primero) para no disparar
+      // el límite de solicitudes por segundo del plan gratuito
+      if(i>0) await esperar(700);
+      const res = await fetchConReintentos(conexion.endpoint, {
         method:"POST", headers: conexion.headers,
         body: JSON.stringify({ model:modelo, messages:[
           {role:"system", content:"Resume brevemente el siguiente fragmento de un documento largo, en español, conservando los datos importantes."},
           {role:"user", content:fragmentos[i]}
         ], temperature:0.5, max_tokens: 800 })
-      });
+      }, { avisar:(intento,total,seg)=> actualizarIndicadorEscribiendo(`${servicio} está saturado (límite de solicitudes). Reintentando fragmento ${i+1}/${fragmentos.length} en ${seg}s (intento ${intento}/${total})...`) });
       if(res.ok){ const d = await res.json(); resumenes.push(d.choices?.[0]?.message?.content || ""); }
+      else if(res.status === 429){
+        eliminarIndicadorEscribiendo();
+        reproducirSonido("error_solicitud");
+        agregarMensajeIA(`[${servicio} respondió "demasiadas solicitudes" (429) varias veces seguidas al procesar tu PDF. Esto es un límite temporal de solicitudes por segundo/minuto del plan gratuito, no un problema para leer el PDF: el texto sí se extrajo correctamente. Espera unos segundos y vuelve a intentarlo, o si tienes claves adicionales configuradas, prueba cambiando de clave.]`, modelo);
+        return;
+      }
     }
     actualizarIndicadorEscribiendo("Generando respuesta final...");
+    await esperar(700);
     const resumenTotal = resumenes.join("\n\n");
     const system = promptSistema();
-    const res2 = await fetch(conexion.endpoint, {
+    const res2 = await fetchConReintentos(conexion.endpoint, {
       method:"POST", headers: conexion.headers,
       body: JSON.stringify({ model:modelo, messages:[
         {role:"system", content:system},
         {role:"user", content:`Aquí tienes el resumen de un documento largo dividido en partes:\n\n${resumenTotal}\n\nPregunta del usuario sobre ese documento: ${pregunta}`}
       ], temperature:0.7, max_tokens: tokens_config[servicio]||4000 })
-    });
+    }, { avisar:(intento,total,seg)=> actualizarIndicadorEscribiendo(`${servicio} está saturado (límite de solicitudes). Reintentando respuesta final en ${seg}s (intento ${intento}/${total})...`) });
     eliminarIndicadorEscribiendo();
     if(res2.ok){
       const d2 = await res2.json();
       const contenido = d2.choices?.[0]?.message?.content || "[Respuesta vacía]";
       const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(contenido);
       agregarMensajeIA(mensajeAccion? textoLimpio+"\n\n"+mensajeAccion : textoLimpio, modelo);
+    } else if(res2.status === 429){
+      reproducirSonido("error_solicitud");
+      agregarMensajeIA(`[${servicio} respondió "demasiadas solicitudes" (429) varias veces al generar la respuesta final. Esto es un límite temporal del plan gratuito, no un problema para leer el PDF. Espera unos segundos y vuelve a intentarlo.]`, modelo);
     } else {
       reproducirSonido("error_solicitud");
       agregarMensajeIA(`[Error HTTP ${res2.status} generando la respuesta final]`, modelo);
@@ -2235,6 +2467,9 @@ function init(){
   poblarSelectorModelos();
   actualizarTextoBotonAccesoEspecial();
   $("#txt_titulo").textContent = "Yoni Tech - " + tema_actual;
+
+  elConversacion.addEventListener("scroll", actualizarBotonIrAlFinal);
+  $("#btn_ir_final").addEventListener("click", ()=>{ irAlFinalDelChat(); });
 
   $("#sp_servicio").addEventListener("change", ()=>{
     servicio_actual = $("#sp_servicio").value;
