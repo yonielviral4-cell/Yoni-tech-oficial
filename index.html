@@ -214,7 +214,7 @@
   <div id="adjuntos-bar" aria-label="Archivos adjuntos"></div>
 
   <form id="fila-inferior" autocomplete="off">
-    <button type="button" class="btn btn-ir-final" id="btn_ir_final" hidden aria-label="Ir al final de la conversación" title="Ir al final">⬇</button>
+    <button type="button" class="btn btn-ir-final" id="btn_ir_final" hidden aria-label="Ir al final" title="Ir al final">⬇</button>
     <label for="edit_pregunta" class="visually-hidden">Escribe tu pregunta</label>
     <textarea id="edit_pregunta" placeholder="Escribe tu pregunta aquí... (Enter envía, Shift+Enter salto de línea)" rows="1"></textarea>
     <button type="button" class="btn btn-mic" id="btn_dictado" aria-pressed="false" aria-label="Activar dictado por voz">🎙️</button>
@@ -1080,6 +1080,70 @@ function agregarMensajeResultadosMusica(consultaOriginal, resultados){
   autoScroll();
 }
 
+/* Mientras se muestra el indicador "escribiendo", los tres sonidos de
+   escritura (escribiendo, escribiendo2, escribiendo3) se alternan al azar
+   y se reproducen en bucle uno detrás del otro (nunca se repite el mismo
+   dos veces seguidas) durante TODO el tiempo que dure el procesamiento de
+   la respuesta -- el sonido no debe quedar en silencio en ningún momento
+   hasta que la respuesta termine de generarse. */
+let cicloEscribiendoActivo = false;
+let audioEscribiendoActual = null;
+let idEscribiendoAnterior = null;
+
+function detenerCicloEscribiendo(){
+  cicloEscribiendoActivo = false;
+  if(audioEscribiendoActual){
+    try{
+      audioEscribiendoActual.onended = null;
+      audioEscribiendoActual.pause();
+      audioEscribiendoActual.currentTime = 0;
+    }catch(e){ /* ignorar */ }
+    audioEscribiendoActual = null;
+  }
+  idEscribiendoAnterior = null;
+}
+
+function elegirSiguienteSonidoEscribiendo(){
+  const variantes = ["escribiendo","escribiendo2","escribiendo3"];
+  if(variantes.length <= 1) return variantes[0];
+  let candidato;
+  do{ candidato = variantes[Math.floor(Math.random()*variantes.length)]; }
+  while(candidato === idEscribiendoAnterior);
+  return candidato;
+}
+
+function reproducirSiguienteSonidoEscribiendo(){
+  if(!cicloEscribiendoActivo) return;
+  if(!sonido_activado){ detenerCicloEscribiendo(); return; }
+  const candidato = elegirSiguienteSonidoEscribiendo();
+  idEscribiendoAnterior = candidato;
+  const tipoInfo = TIPOS_SONIDO.find(t=> t.id === candidato);
+  const continuarTrasFallo = ()=>{
+    if(!cicloEscribiendoActivo) return;
+    reproducirSonidoGenerado(candidato);
+    const patron = PATRONES_SONIDO[candidato] || [[500,0.05]];
+    const duracionMs = patron.reduce((acc,[,dur])=> acc+dur, 0) * 1000 + 60;
+    setTimeout(()=> reproducirSiguienteSonidoEscribiendo(), duracionMs);
+  };
+  if(!tipoInfo){ continuarTrasFallo(); return; }
+  try{
+    const audio = obtenerAudioSonido(candidato, tipoInfo.archivo);
+    audio.currentTime = 0;
+    audio.volume = Math.max(0, Math.min(1, volumen_app/100));
+    audio.onended = ()=> reproducirSiguienteSonidoEscribiendo();
+    audioEscribiendoActual = audio;
+    const p = audio.play();
+    if(p && typeof p.catch === "function") p.catch(continuarTrasFallo);
+  }catch(e){ continuarTrasFallo(); }
+}
+
+function iniciarCicloEscribiendo(){
+  if(cicloEscribiendoActivo) return; // ya está sonando en bucle, no lo reiniciamos
+  cicloEscribiendoActivo = true;
+  idEscribiendoAnterior = null;
+  reproducirSiguienteSonidoEscribiendo();
+}
+
 let elIndicador = null;
 function mostrarIndicadorEscribiendo(msg){
   eliminarIndicadorEscribiendo();
@@ -1089,11 +1153,13 @@ function mostrarIndicadorEscribiendo(msg){
   elIndicador.textContent = msg || "Yoni Tech está escribiendo...";
   elConversacion.appendChild(elIndicador);
   autoScroll();
-  const variantes = ["escribiendo","escribiendo2","escribiendo3"];
-  reproducirSonido(variantes[Math.floor(Math.random()*variantes.length)]);
+  iniciarCicloEscribiendo();
 }
 function actualizarIndicadorEscribiendo(msg){ if(elIndicador) elIndicador.textContent = msg; }
-function eliminarIndicadorEscribiendo(){ if(elIndicador){ elIndicador.remove(); elIndicador=null; } }
+function eliminarIndicadorEscribiendo(){
+  if(elIndicador){ elIndicador.remove(); elIndicador=null; }
+  detenerCicloEscribiendo();
+}
 
 /* --------------------------------- Notas ---------------------------------- */
 const TEXTO_SYSTEM_PROMPT_NOTAS =
