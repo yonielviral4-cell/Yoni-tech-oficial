@@ -144,11 +144,13 @@
   .slider-tog:before{ position:absolute; content:""; height:20px; width:20px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
   input:checked + .slider-tog{ background:var(--verde); }
   input:checked + .slider-tog:before{ transform:translateX(20px); }
-  .lista-notas, .lista-comandos, .lista-claves{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
-  .item-nota, .item-comando, .item-clave{
+  .lista-notas, .lista-comandos, .lista-claves, .lista-mis-sonidos{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .item-nota, .item-comando, .item-clave, .item-mi-sonido{
     background:var(--panel2); border-radius:8px; padding:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;
   }
-  .item-nota .info, .item-comando .info, .item-clave .info{ flex:1; font-size:0.85rem; overflow:hidden; }
+  .item-nota .info, .item-comando .info, .item-clave .info, .item-mi-sonido .info{ flex:1; font-size:0.85rem; overflow:hidden; }
+  .item-mi-sonido .info .estado-sonido{ display:block; font-size:0.75rem; opacity:0.7; margin-top:2px; }
+  .item-mi-sonido .acciones{ display:flex; gap:6px; flex-shrink:0; }
   .item-nota .titulo, .item-comando .titulo{ font-weight:700; display:block; }
   .mini-btn{ background:#555; color:#fff; padding:6px 9px; font-size:0.78rem; }
   .mini-btn.rojo{ background:var(--rojo); }
@@ -184,8 +186,6 @@
       <select id="sp_servicio">
         <option value="Mistral AI">Mistral AI</option>
         <option value="Morph">Morph</option>
-        <option value="Proxy Mistral" id="opt-proxy-mistral" hidden>Mistral AI (acceso especial)</option>
-        <option value="Proxy OpenRouter" id="opt-proxy-openrouter" hidden>OpenRouter AI (acceso especial)</option>
       </select>
       <button class="btn btn-recargar" id="btn_recargar_modelos">Recargar</button>
     </div>
@@ -201,9 +201,9 @@
     <div id="conversacion" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación con Yoni Tech">
       <div class="bienvenida" id="bienvenida">
         Hola, soy <strong>Yoni Tech</strong> 👋 — esta es mi versión web. Antes de empezar, abre
-        <strong>«Abrir barra lateral → Gestionar APIs»</strong> para poner tu clave de Mistral AI o Morph,
-        o usa <strong>«Abrir barra lateral → Acceso especial»</strong> si tienes la contraseña para conectarte
-        sin necesidad de clave propia.
+        <strong>«Abrir barra lateral → Gestionar APIs»</strong> para poner tu clave de Mistral AI o Morph.
+        Si quieres los sonidos originales del plugin (no los tonos genéricos), ve a
+        <strong>«Abrir barra lateral → Sonidos»</strong> y pulsa «⬇️ Descargar todos los sonidos».
         Puedo hablarte por voz, escucharte por dictado, leer archivos de texto, PDF e imágenes que adjuntes,
         guardarte notas, darte el clima real de cualquier ciudad, generar archivos descargables cuando programo
         algo largo, y más. Escribe abajo o pulsa el micrófono para empezar.
@@ -232,12 +232,18 @@
     <h2 id="tit-consentimiento">Política de seguridad</h2>
     <p id="txt-consentimiento">
       Al continuar, aceptas que el navegador guarde tu información sensible, como datos personales o información
-      sobre tu navegador, con cookies de seguridad.
+      sobre tu navegador, con cookies de seguridad. Al aceptar esta política, también autorizas que la aplicación
+      descargue datos externos a tu navegador (por ejemplo, archivos de sonido) cuando tú lo solicites explícitamente
+      desde las opciones correspondientes. No introduzcas información sensible (contraseñas de otros servicios,
+      datos bancarios, documentos de identidad) en ningún campo de esta aplicación.
     </p>
     <p class="ayuda">
       (En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración,
       tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador,
-      en este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos.)
+      en este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos.
+      Si activas la descarga de sonidos personalizados desde "Sonidos" en el menú lateral, tu navegador
+      se conectará directamente a Google Drive para traer esos archivos de audio y guardarlos también en
+      este dispositivo; esa conexión ocurre solo cuando tú la inicias, nunca de forma automática ni oculta.)
     </p>
     <div class="toggle-row" style="align-items:flex-start;">
       <label for="chk-consentimiento" style="flex:1;">Estoy de acuerdo con la política de seguridad</label>
@@ -260,11 +266,11 @@
       <button style="background:var(--indigo)" data-accion="editar-perfil">Editar perfil</button>
       <button style="background:#FF9800" data-accion="gestionar-api">Gestionar APIs</button>
       <button style="background:var(--deep-orange)" data-accion="cambiar-tokens">Cambiar tokens</button>
-      <button style="background:var(--violeta)" data-accion="configurar-voz">Configurar voz</button>
+      <button style="background:var(--violeta)" data-accion="configurar-voz">Voz</button>
+      <button style="background:#0288D1" data-accion="configurar-sonidos">Sonidos</button>
       <button style="background:var(--cyan)" data-accion="comandos">Comandos personalizados</button>
       <button style="background:#455A64" data-accion="notas">Mis notas</button>
       <button style="background:#455A64" data-accion="dispositivo">Info del dispositivo</button>
-      <button style="background:var(--oro); color:#000;" id="btn-acceso-especial" data-accion="acceso-especial">Acceso especial</button>
       <button style="background:var(--rojo)" data-cerrar="ov-menu">Cerrar barra lateral</button>
     </div>
   </div>
@@ -340,7 +346,15 @@
       <input type="password" id="in-morph-key" autocomplete="off">
       <small><a href="https://morphllm.com/dashboard" target="_blank" rel="noopener">Obtener clave de Morph →</a></small>
     </div>
-    <div class="lista-claves" id="lista-claves-adicionales"></div>
+    <div class="campo">
+      <label>Claves adicionales de respaldo</label>
+      <small>Si tu clave principal deja de funcionar (por ejemplo por error de cuota), Yoni Tech cambiará automáticamente a la siguiente clave adicional guardada y esa pasará a ser la clave oficial.</small>
+      <div class="lista-claves" id="lista-claves-adicionales"></div>
+      <div class="fila-2" style="margin-top:8px;">
+        <button type="button" class="btn" style="background:var(--naranja)" id="btn-agregar-clave-mistral">Agregar API adicional de Mistral</button>
+        <button type="button" class="btn" style="background:var(--naranja)" id="btn-agregar-clave-morph">Agregar API adicional de Morph</button>
+      </div>
+    </div>
     <div class="fila-2" style="margin-top:10px;">
       <button class="btn" style="background:var(--verde)" id="btn-guardar-api">Guardar claves</button>
       <button class="btn" style="background:var(--gris)" data-cerrar="ov-api">Cerrar</button>
@@ -352,19 +366,23 @@
   </div>
 </div>
 
-<div class="overlay" id="ov-acceso-especial" hidden>
-  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-acceso-especial">
-    <button class="cerrar-x" data-cerrar="ov-acceso-especial" aria-label="Cerrar">✕</button>
-    <h2 id="tit-acceso-especial">Acceso especial</h2>
-    <p class="ayuda" id="txt-acceso-especial-ayuda">Ingresa la contraseña para conectar automáticamente con el servidor unificado de Yoni Tech (sin necesidad de tus propias claves API).</p>
-    <form id="form-acceso-especial">
+<div class="overlay" id="ov-clave-adicional" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-clave-adicional">
+    <button class="cerrar-x" data-cerrar="ov-clave-adicional" aria-label="Cerrar">✕</button>
+    <h2 id="tit-clave-adicional">Agregar API adicional</h2>
+    <p class="ayuda" id="txt-clave-adicional-servicio">Esta clave se guardará como respaldo. Si tu clave principal deja de funcionar, esta pasará a ser la clave oficial automáticamente.</p>
+    <form id="form-clave-adicional">
       <div class="campo">
-        <label for="in-acceso-especial">Contraseña</label>
-        <input type="password" id="in-acceso-especial" autocomplete="off">
+        <label for="in-nombre-clave-adicional">Nombre (generado automáticamente)</label>
+        <input type="text" id="in-nombre-clave-adicional" disabled>
+      </div>
+      <div class="campo">
+        <label for="in-clave-adicional">Pega la clave API adicional aquí</label>
+        <input type="password" id="in-clave-adicional" autocomplete="off">
       </div>
       <div class="fila-2">
-        <button type="submit" class="btn" style="background:var(--oro); color:#000;">Confirmar</button>
-        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-acceso-especial">Cancelar</button>
+        <button type="submit" class="btn" style="background:var(--naranja)">Guardar clave adicional</button>
+        <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-clave-adicional">Cancelar</button>
       </div>
     </form>
   </div>
@@ -393,7 +411,7 @@
 <div class="overlay" id="ov-voz" hidden>
   <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-voz">
     <button class="cerrar-x" data-cerrar="ov-voz" aria-label="Cerrar">✕</button>
-    <h2 id="tit-voz">Configurar voz</h2>
+    <h2 id="tit-voz">Voz</h2>
     <div class="toggle-row">
       <label for="chk-voz-activa">Leer respuestas en voz alta automáticamente</label>
       <span class="switch"><input type="checkbox" id="chk-voz-activa"><span class="slider-tog"></span></span>
@@ -410,17 +428,43 @@
       <label for="rango-tono">Tono (<span id="lbl-tono">100</span>%)</label>
       <input type="range" id="rango-tono" min="50" max="200" step="5">
     </div>
-    <div class="campo" id="campo-volumen-app" hidden>
+    <div class="fila-2">
+      <button class="btn" style="background:var(--verde)" id="btn-guardar-voz">Guardar</button>
+      <button class="btn" style="background:var(--gris)" data-cerrar="ov-voz">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-sonidos" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-sonidos">
+    <button class="cerrar-x" data-cerrar="ov-sonidos" aria-label="Cerrar">✕</button>
+    <h2 id="tit-sonidos">Sonidos</h2>
+    <p class="ayuda">
+      Yoni Tech puede sonar con tonos generados por software, o con los 18 sonidos originales del
+      plugin descargados una sola vez desde Google Drive y guardados en este navegador (no en ningún
+      servidor). Marca la casilla para usar los sonidos descargados; si está desmarcada, se usan los
+      tonos sintéticos.
+    </p>
+    <div class="toggle-row">
+      <label for="chk-sonido-activado">Sonidos de la interfaz activados</label>
+      <span class="switch"><input type="checkbox" id="chk-sonido-activado"><span class="slider-tog"></span></span>
+    </div>
+    <div class="toggle-row">
+      <label for="chk-usar-sonidos-descargados">Usar mis sonidos descargados</label>
+      <span class="switch"><input type="checkbox" id="chk-usar-sonidos-descargados"><span class="slider-tog"></span></span>
+    </div>
+    <div class="campo" id="campo-volumen-app">
       <label for="rango-volumen-app">Volumen de los sonidos de la app (<span id="lbl-volumen-app">70</span>%)</label>
       <input type="range" id="rango-volumen-app" min="0" max="100" step="5">
       <small>El navegador no puede controlar el volumen general del teléfono por seguridad; esto ajusta solo los sonidos que genera Yoni Tech.</small>
     </div>
-    <div class="campo">
-      <small>🔇 Los sonidos de interfaz están desactivados en esta versión web (no se reproducían de forma confiable en todos los dispositivos). Si quieres una experiencia más envolvente y con sonidos, descarga el plugin de Yoni Tech.</small>
-    </div>
     <div class="fila-2">
-      <button class="btn" style="background:var(--verde)" id="btn-guardar-voz">Guardar</button>
-      <button class="btn" style="background:var(--gris)" data-cerrar="ov-voz">Cerrar</button>
+      <button class="btn" style="background:#0288D1" id="btn-descargar-todos-sonidos">⬇️ Descargar todos los sonidos</button>
+    </div>
+    <div class="lista-mis-sonidos" id="lista-mis-sonidos"></div>
+    <div class="fila-2">
+      <button class="btn" style="background:var(--verde)" id="btn-guardar-sonidos">Guardar</button>
+      <button class="btn" style="background:var(--gris)" data-cerrar="ov-sonidos">Cerrar</button>
     </div>
   </div>
 </div>
@@ -586,18 +630,11 @@ let claves_adicionales = LS.get("yt_claves_adicionales", { "Mistral AI":[], "Mor
 let errores_clave_consecutivos = { "Mistral AI":0, "Morph":0 };
 const UMBRAL_ERRORES_ROTACION = 3;
 
-let tokens_config = LS.get("yt_tokens_config", { "Mistral AI":4000, "Morph":4000, "Proxy Mistral":4000, "Proxy OpenRouter":4000, FRAGMENT_THRESHOLD_KB:150 });
+let tokens_config = LS.get("yt_tokens_config", { "Mistral AI":4000, "Morph":4000, FRAGMENT_THRESHOLD_KB:150 });
 let modelos_db = LS.get("yt_modelos_db", {
   "Mistral AI":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"],
-  "Morph":["morph-v3-large","morph-v3-fast","morph-v2"],
-  "Proxy Mistral":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"],
-  "Proxy OpenRouter":["openrouter/auto"]
+  "Morph":["morph-v3-large","morph-v3-fast","morph-v2"]
 });
-// asegurar que estas claves existan aunque el usuario tenga datos guardados de una versión anterior
-if(!tokens_config["Proxy Mistral"]) tokens_config["Proxy Mistral"] = 4000;
-if(!tokens_config["Proxy OpenRouter"]) tokens_config["Proxy OpenRouter"] = 4000;
-if(!modelos_db["Proxy Mistral"]) modelos_db["Proxy Mistral"] = ["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"];
-if(!modelos_db["Proxy OpenRouter"]) modelos_db["Proxy OpenRouter"] = ["openrouter/auto"];
 
 let conversation_history = LS.get("yt_historial", []);
 const MAX_HISTORY = 20;
@@ -606,16 +643,6 @@ let contador_temas = LS.get("yt_contador_temas", 1);
 
 let servicio_actual = LS.get("yt_servicio_actual", "Mistral AI");
 let modelo_actual = LS.get("yt_modelo_actual", "mistral-small-latest");
-
-/* --------------------------- Acceso especial (proxy) ----------------------- */
-/* Cuando se activa, el servicio deja de llamar directamente a Mistral/Morph con
-   una clave guardada en este navegador, y en su lugar llama al servidor propio
-   de Yoni Tech (YONI_SERVER), que es quien guarda las claves reales del lado
-   del servidor. El navegador nunca ve ni guarda esas claves. */
-const YONI_SERVER = "https://yoni-tech-apis.onrender.com";
-const CLAVE_ACCESO_ESPECIAL = "yoni1111";
-let acceso_especial_activo = LS.get("yt_acceso_especial_activo", false);
-let servicio_previo_acceso_especial = LS.get("yt_servicio_previo_acceso_especial", "Mistral AI");
 
 let nombre_usuario = LS.get("yt_nombre_usuario", "");
 let perfil_usuario = LS.get("yt_perfil_usuario", "");
@@ -630,6 +657,7 @@ let notas = LS.get("yt_notas", {}); // { titulo: {contenido, extension, fecha} }
 let voz_cfg = LS.get("yt_voz", { activada:false, velocidad:100, tono:100, voiceURI:"" });
 let volumen_app = LS.get("yt_volumen_app", 70);
 let sonido_activado = LS.get("yt_sonido_activado", true);
+let usar_sonidos_descargados = LS.get("yt_usar_sonidos_descargados", false);
 
 function guardarConfiguracion(){
   LS.set("yt_mistral_key", MISTRAL_KEY);
@@ -638,51 +666,6 @@ function guardarConfiguracion(){
   LS.set("yt_modelo_actual", modelo_actual);
   LS.set("yt_modelos_db", modelos_db);
   LS.set("yt_tokens_config", tokens_config);
-}
-function guardarEstadoAccesoEspecial(){
-  LS.set("yt_acceso_especial_activo", acceso_especial_activo);
-  LS.set("yt_servicio_previo_acceso_especial", servicio_previo_acceso_especial);
-}
-
-function actualizarTextoBotonAccesoEspecial(){
-  const btn = $("#btn-acceso-especial");
-  if(!btn) return;
-  btn.textContent = acceso_especial_activo ? "Desactivar acceso especial" : "Acceso especial";
-}
-
-function actualizarVisibilidadOpcionesProxy(){
-  const optM = $("#opt-proxy-mistral"), optO = $("#opt-proxy-openrouter");
-  if(optM) optM.hidden = !acceso_especial_activo;
-  if(optO) optO.hidden = !acceso_especial_activo;
-}
-
-function activarAccesoEspecial(){
-  if(!acceso_especial_activo){
-    servicio_previo_acceso_especial = servicio_actual;
-    guardarEstadoAccesoEspecial();
-  }
-  acceso_especial_activo = true;
-  guardarEstadoAccesoEspecial();
-  actualizarVisibilidadOpcionesProxy();
-  servicio_actual = "Proxy Mistral";
-  $("#sp_servicio").value = servicio_actual;
-  guardarConfiguracion();
-  poblarSelectorModelos();
-  actualizarTextoBotonAccesoEspecial();
-  mostrarToast("Acceso especial activado: conectado al servidor de Yoni Tech");
-}
-
-function desactivarAccesoEspecial(){
-  acceso_especial_activo = false;
-  guardarEstadoAccesoEspecial();
-  actualizarVisibilidadOpcionesProxy();
-  servicio_actual = (servicio_previo_acceso_especial==="Proxy Mistral"||servicio_previo_acceso_especial==="Proxy OpenRouter")
-    ? "Mistral AI" : servicio_previo_acceso_especial;
-  $("#sp_servicio").value = servicio_actual;
-  guardarConfiguracion();
-  poblarSelectorModelos();
-  actualizarTextoBotonAccesoEspecial();
-  mostrarToast("Acceso especial desactivado: volviste a tus claves API");
 }
 
 function guardarHistorialEnArchivo(){
@@ -693,56 +676,151 @@ function guardarHistorialEnArchivo(){
 function guardarComandosUsuario(){ LS.set("yt_comandos", comandos_usuario); }
 function guardarNotas(){ LS.set("yt_notas", notas); }
 function guardarClavesAdicionales(){ LS.set("yt_claves_adicionales", claves_adicionales); }
+
+/* --------------------- Claves API adicionales (respaldo) ------------------- */
+/* Portado del plugin original (Lua): genera un nombre tipo "API 37" con un
+   número aleatorio entre 2 y 99 que no se haya usado antes para ese servicio,
+   para distinguir visualmente cada clave de respaldo agregada. */
+let numeros_api_usados = LS.get("yt_numeros_api_usados", { "Mistral AI":{}, "Morph":{} });
+function guardarNumerosApiUsados(){ LS.set("yt_numeros_api_usados", numeros_api_usados); }
+
+function generarNombreClaveAdicional(servicio){
+  if(!numeros_api_usados[servicio]) numeros_api_usados[servicio] = {};
+  let numero = null;
+  let intentos = 0;
+  do{
+    numero = 2 + Math.floor(Math.random()*98); // 2..99
+    intentos++;
+  } while(numeros_api_usados[servicio][numero] && intentos <= 50);
+  numeros_api_usados[servicio][numero] = true;
+  guardarNumerosApiUsados();
+  return "API " + numero;
+}
+
+/* Agrega una clave adicional de respaldo para el servicio indicado. Devuelve
+   true si se guardó, false si la clave estaba vacía. */
+function agregarClaveAdicional(servicio, clave, nombre){
+  clave = trim(clave);
+  if(clave.length === 0) return false;
+  if(!claves_adicionales[servicio]) claves_adicionales[servicio] = [];
+  claves_adicionales[servicio].push({ nombre: nombre || generarNombreClaveAdicional(servicio), clave });
+  guardarClavesAdicionales();
+  return true;
+}
+
 function guardarVoz(){ LS.set("yt_voz", voz_cfg); }
 
 /* -------------------------------- Sonidos -------------------------------- */
-/* El plugin original usaba 18 archivos .ogg/.mp3/.wav propios guardados en
-   el teléfono. Aquí se reproducen esos MISMOS 18 sonidos si los subes junto
-   a este index.html en una carpeta "sonidos/" de tu repositorio (funciona
-   igual en Render que en GitHub Pages: ambos sirven archivos estáticos).
-   Si un archivo todavía no existe, no se pudo cargar, o el navegador lo
-   bloquea, se usa automáticamente un tono generado con Web Audio API como
-   respaldo — así SIEMPRE se escucha algo, nunca se rompe el flujo. En
-   cuanto subas los archivos reales, empiezan a sonar ellos solos, sin tocar
-   nada más del código. */
-const SONIDOS_BASE = "";
-const SONIDOS_ARCHIVOS = {
-  enviar_mistral:      "enviar-mistral.mp3",
-  enviar_morph:        "enviar-morph.mp3",
-  recibir:             "recibir.mp3",
-  copiar:              "copiar.mp3",
-  dictado_inicio:      "dictado-inicio.mp3",
-  dictado_fin:         "dictado-fin.mp3",
-  dictado_error:       "dictado-error.mp3",
-  modelos_cargados:    "modelos-cargados.mp3",
-  modelos_error:       "modelos-error.mp3",
-  escribiendo:         "escribiendo.mp3",
-  escribiendo2:        "escribiendo2.mp3",
-  escribiendo3:        "escribiendo3.mp3",
-  error_solicitud:     "error-solicitud.mp3",
-  abrir_barra_lateral: "abrir-barra-lateral.mp3",
-  archivo_cargado:     "archivo-cargado.mp3",
-  boton:               "boton.mp3",
-  eliminar_documento:  "eliminar-documento.mp3",
-  cambio_ventana:      "cambio-ventana.mp3"
-};
-/* Usa .mp3 en los 18 archivos (aunque el original tuviera .ogg/.wav) porque
-   mp3 es el único formato que reproducen TODOS los navegadores, incluido
-   Safari/iPhone. Si prefieres conservar .ogg/.wav, solo cambia las
-   extensiones en el objeto de arriba para que coincidan con tus archivos. */
+/* Los sonidos de interfaz pueden usar los 18 archivos de audio ORIGINALES
+   del plugin, descargados una sola vez desde Google Drive y guardados en el
+   navegador con IndexedDB -- no en el repositorio ni en el hosting. El
+   usuario pulsa "Descargar todos los sonidos" en Sonidos → menú lateral, y
+   quedan disponibles en ese navegador/dispositivo para siempre (hasta que
+   borre datos del sitio). Si la casilla "Usar mis sonidos descargados" está
+   desmarcada, o un evento aún no se ha descargado, se usa un tono sintético
+   generado por Web Audio API como respaldo automático -- así nunca queda un
+   evento mudo. Las URLs de Google Drive deben apuntar a archivos compartidos
+   como "Cualquier persona con el enlace" (nivel Lector es suficiente),
+   convertidas al formato de descarga directa uc?export=download&id=... */
 
-const cacheAudio = {};
-const sonidosQueFallaron = new Set();
+const TIPOS_SONIDO = [
+  { id:"enviar_mistral",      etiqueta:"Enviar (Mistral AI)",           driveId:"1FHXvEQsgBpmEs_YPuZ__mCRTse_4ih3L" },
+  { id:"enviar_morph",        etiqueta:"Enviar (Morph)",                driveId:"1qEVDXcOh6Fsx4_pPTt4mDkVf_QeFmimb" },
+  { id:"recibir",             etiqueta:"Recibir respuesta",             driveId:"13mg0mw8JXTmUEc6AmLWuovBqIoxXJAcn" },
+  { id:"copiar",              etiqueta:"Copiar texto",                  driveId:"1FfDL86A6waEg3kkRmss1G1acF8HCEYLW" },
+  { id:"dictado_inicio",      etiqueta:"Iniciar dictado por voz",       driveId:"1k-5HvHoWNyNpidFi6uomonAaGGk2fvnV" },
+  { id:"dictado_fin",         etiqueta:"Finalizar dictado por voz",     driveId:"15bUSSx-Ka1LLqj51ud0CBuKU6Y_IXQIs" },
+  { id:"dictado_error",       etiqueta:"Error de dictado",              driveId:"10_jHRXi2ZQPEyODA82C6lzYDBwjFBEtm" },
+  { id:"modelos_cargados",    etiqueta:"Modelos cargados",              driveId:"127vjhfQj-DOwk6Wib8MkG7wcOO7xYI5B" },
+  { id:"modelos_error",       etiqueta:"Error al cargar modelos",       driveId:"1vwKZTJNQvul0gGm0fvhgK3BWNJmpmxv3" },
+  { id:"escribiendo",         etiqueta:"Escribiendo (variante 1)",      driveId:"1OFF-LizOojYra4uLJQDfPn9IHkjKFGdb" },
+  { id:"escribiendo2",        etiqueta:"Escribiendo (variante 2)",      driveId:"1TeS4_DvuLtHosuBH5HvCcJDPofeF1XI0" },
+  { id:"escribiendo3",        etiqueta:"Escribiendo (variante 3)",      driveId:"1pUUo4jkZ57UnCCsEF2tUiqIKkU99QGNk" },
+  { id:"error_solicitud",     etiqueta:"Error de solicitud",            driveId:"1h2svuCsBLD3WSWEmseaml0emU-AzEbFz" },
+  { id:"abrir_barra_lateral", etiqueta:"Abrir barra lateral",           driveId:"1AgUgBIDanMJJvhkgShnb7-4z-T-pebSO" },
+  { id:"archivo_cargado",     etiqueta:"Archivo adjuntado",             driveId:"1Ma5RSvfWYx9UMn16wBAs7xe22aH645zN" },
+  { id:"boton",               etiqueta:"Pulsar botón",                  driveId:"1zhA5OVlHX-setiDPCBZz4JwS5BrloXkZ" },
+  { id:"eliminar_documento",  etiqueta:"Eliminar documento",            driveId:"1SuP6UDnHOWTZPCZHTD_1wJbqtJYT9fZG" },
+  { id:"cambio_ventana",      etiqueta:"Cambio de ventana/diálogo",     driveId:"1p5YAl7NUB3e3ydxKmWyutYjeDdYAcdgw" }
+];
 
-function obtenerAudio(tipo){
-  if(cacheAudio[tipo]) return cacheAudio[tipo];
-  const nombre = SONIDOS_ARCHIVOS[tipo];
-  if(!nombre) return null;
-  const a = new Audio(SONIDOS_BASE + nombre);
-  a.preload = "auto";
-  a.addEventListener("error", ()=>{ sonidosQueFallaron.add(tipo); });
-  cacheAudio[tipo] = a;
-  return a;
+function urlDescargaDirectaDrive(driveId){
+  return "https://drive.google.com/uc?export=download&id=" + driveId;
+}
+
+const IDB_NOMBRE_BD = "yoni_tech_sonidos";
+const IDB_ALMACEN = "sonidos";
+let idbSonidosDB = null;
+
+function abrirBDSonidos(){
+  return new Promise((resolve, reject)=>{
+    if(idbSonidosDB){ resolve(idbSonidosDB); return; }
+    if(!window.indexedDB){ reject(new Error("IndexedDB no disponible en este navegador")); return; }
+    const peticion = indexedDB.open(IDB_NOMBRE_BD, 1);
+    peticion.onupgradeneeded = (e)=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(IDB_ALMACEN)) db.createObjectStore(IDB_ALMACEN);
+    };
+    peticion.onsuccess = (e)=>{ idbSonidosDB = e.target.result; resolve(idbSonidosDB); };
+    peticion.onerror = ()=> reject(peticion.error);
+  });
+}
+
+async function guardarSonidoPropio(tipo, blob){
+  const db = await abrirBDSonidos();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_ALMACEN, "readwrite");
+    tx.objectStore(IDB_ALMACEN).put(blob, tipo);
+    tx.oncomplete = ()=> resolve(true);
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+async function borrarSonidoPropio(tipo){
+  const db = await abrirBDSonidos();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_ALMACEN, "readwrite");
+    tx.objectStore(IDB_ALMACEN).delete(tipo);
+    tx.oncomplete = ()=> resolve(true);
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+async function obtenerSonidoPropio(tipo){
+  const db = await abrirBDSonidos();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_ALMACEN, "readonly");
+    const peticion = tx.objectStore(IDB_ALMACEN).get(tipo);
+    peticion.onsuccess = ()=> resolve(peticion.result || null);
+    peticion.onerror = ()=> reject(peticion.error);
+  });
+}
+
+async function listarTiposConSonidoPropio(){
+  const db = await abrirBDSonidos();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_ALMACEN, "readonly");
+    const peticion = tx.objectStore(IDB_ALMACEN).getAllKeys();
+    peticion.onsuccess = ()=> resolve(peticion.result || []);
+    peticion.onerror = ()=> reject(peticion.error);
+  });
+}
+
+/* Cache en memoria de las URLs de reproducción (creadas desde los blobs de
+   IndexedDB) para no tener que releer la base de datos en cada reproducción.
+   Se invalida (borrando la entrada) cada vez que se sube o quita un sonido. */
+const cacheUrlSonidoPropio = {};
+async function obtenerUrlSonidoPropio(tipo){
+  if(cacheUrlSonidoPropio[tipo] !== undefined) return cacheUrlSonidoPropio[tipo];
+  try{
+    const blob = await obtenerSonidoPropio(tipo);
+    const url = blob ? URL.createObjectURL(blob) : null;
+    cacheUrlSonidoPropio[tipo] = url;
+    return url;
+  }catch(e){
+    cacheUrlSonidoPropio[tipo] = null;
+    return null;
+  }
 }
 
 let audioCtx = null;
@@ -774,29 +852,23 @@ function reproducirSonidoGenerado(tipo){
     t += dur;
   });
 }
-function reproducirSonido(tipo){
-  /* Sonidos desactivados en la versión web (no reproducían de forma confiable
-     en todos los navegadores/dispositivos). Todo el código original de abajo
-     se conserva intacto y comentado por si en el futuro se resuelve el problema
-     de hosting de los .mp3 y se quiere reactivar; para reactivar, descomenta
-     el bloque y quita el "return" de esta línea. El plugin (Jieshuo) sí
-     conserva sus sonidos nativos normalmente.
+async function reproducirSonido(tipo){
   if(!sonido_activado) return;
-  if(!sonidosQueFallaron.has(tipo) && SONIDOS_ARCHIVOS[tipo]){
-    const base = obtenerAudio(tipo);
-    if(base){
-      const inst = base.cloneNode(true);
-      inst.volume = Math.max(0, Math.min(1, volumen_app/100));
-      const p = inst.play();
-      if(p && typeof p.catch === "function"){
-        p.catch(()=>{ sonidosQueFallaron.add(tipo); reproducirSonidoGenerado(tipo); });
+  if(usar_sonidos_descargados){
+    try{
+      const url = await obtenerUrlSonidoPropio(tipo);
+      if(url){
+        const audio = new Audio(url);
+        audio.volume = Math.max(0, Math.min(1, volumen_app/100));
+        const p = audio.play();
+        if(p && typeof p.catch === "function") p.catch(()=> reproducirSonidoGenerado(tipo));
+        return;
       }
-      return;
-    }
+    }catch(e){ /* si algo falla leyendo IndexedDB, se usa el tono sintético */ }
   }
-  */
-  return;
+  reproducirSonidoGenerado(tipo);
 }
+
 
 /* --------------------------------- Fecha/hora ---------------------------- */
 function formatoHoraPersonalizado(){
@@ -1587,25 +1659,30 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   " Conoces perfectamente la interfaz de esta página web y, si el usuario pregunta cómo hacer algo, " +
   "dónde está un botón, o parece perdido, explícaselo con precisión usando esta guía: " +
   "En la parte de ARRIBA está el título 'Yoni Tech' y un botón con ícono de menú (☰) que abre la barra lateral. " +
-  "La BARRA LATERAL (al abrirla) tiene estos botones: 'Gestionar APIs' (para poner o cambiar las claves de Mistral AI y Morph), " +
-  "'Acceso especial' (pide una contraseña y, si es correcta, conecta automáticamente al servidor de Yoni Tech sin necesitar clave propia; " +
-  "una vez activo el botón cambia a 'Desactivar acceso especial' y también pide la contraseña para volver a las claves normales), " +
-  "'Info del dispositivo', y 'Cerrar barra lateral'. " +
-  "Arriba del todo también hay un SELECTOR DE SERVICIO (para elegir entre Mistral AI, Morph, o las opciones de acceso especial) " +
+  "La BARRA LATERAL (al abrirla) tiene estos botones: 'Gestionar APIs' (para poner o cambiar las claves de Mistral AI y Morph, " +
+  "y también para agregar claves adicionales de respaldo que se activan automáticamente si la clave principal deja de funcionar), " +
+  "'Voz' (para configurar la lectura en voz alta de las respuestas), 'Sonidos' (para activar/desactivar los sonidos de " +
+  "interfaz, elegir entre tonos generados o los 18 sonidos originales del plugin descargados desde Google Drive con el botón " +
+  "'⬇️ Descargar todos los sonidos', y ajustar el volumen), 'Info del dispositivo', y 'Cerrar barra lateral'. " +
+  "Arriba del todo también hay un SELECTOR DE SERVICIO (para elegir entre Mistral AI y Morph) " +
   "y un SELECTOR DE MODELO justo al lado, con un botón para recargar la lista de modelos disponibles. " +
   "En la parte de ABAJO está la CAJA DE TEXTO donde el usuario escribe su mensaje (Enter para enviar, Shift+Enter para salto de línea), " +
   "un botón con ícono de clip (📎) para ADJUNTAR ARCHIVOS (acepta texto, PDF e imágenes, hasta el máximo permitido), " +
   "un botón de MICRÓFONO para dictar por voz, y el botón 'Enviar' (verde) que envía el mensaje. " +
   "Mientras la IA está generando una respuesta, ese mismo botón cambia a 'Detener' (rojo): al presionarlo se detiene la generación " +
   "y, si el usuario escribe 'continuar', la IA sigue exactamente donde se quedó. " +
+  "Cuando el usuario se desplaza hacia arriba para leer mensajes anteriores del chat, aparece un botón redondo 'Ir al final' " +
+  "(⬇) junto a la caja de texto, que lo regresa al último mensaje con un toque. " +
   "Cuando la IA genera un archivo para descargar, aparece como una tarjeta con el nombre del archivo y un botón 'Descargar' " +
   "que lo guarda directamente en el dispositivo del usuario. " +
-  "Si el usuario nota que la app no tiene sonidos, pregunta por sonidos, o pregunta cómo tener una experiencia más " +
+  "No tienes acceso a búsqueda en internet ni a información en tiempo real: si el usuario pide noticias de último momento " +
+  "o datos que puedan haber cambiado después de tu entrenamiento, acláraselo honestamente en vez de inventar datos. " +
   "Si el usuario no sabe usar alguna función, explícasela en pasos simples y claros, mencionando el nombre exacto del botón o menú. " +
-  "Si el usuario nota que la app no tiene sonidos, pregunta por sonidos, o pregunta cómo tener una experiencia más " +
-  "completa y envolvente, recomiéndale amablemente descargar el plugin de Yoni Tech (la versión original para el " +
-  "lanzador Jieshuo), que sí incluye todos los sonidos de interfaz y una experiencia más fluida; esta versión web " +
-  "los tiene desactivados porque no se reproducían de forma confiable en todos los navegadores.";
+  "Esta versión web puede sonar con los 18 sonidos ORIGINALES del plugin (no solo tonos genéricos): recomienda proactivamente " +
+  "al usuario, sobre todo si es de las primeras veces que usa la app o si pregunta por los sonidos, que vaya al menú lateral → " +
+  "'Sonidos' y presione '⬇️ Descargar todos los sonidos' para traerlos una sola vez desde Google Drive y guardarlos en su " +
+  "navegador (no en ningún servidor); luego debe marcar 'Usar mis sonidos descargados' y guardar. Si el usuario no escucha " +
+  "nada, revisa que 'Sonidos de la interfaz activados' esté marcado y sube el volumen ahí mismo.";
 const TEXTO_SYSTEM_PROMPT_ARCHIVOS =
   " Cuando el usuario te pida programar o generar contenido largo destinado a ser un ARCHIVO " +
   "(por ejemplo un script, una página HTML, un documento de texto, etc.), y quiera descargarlo, " +
@@ -1660,16 +1737,8 @@ async function fetchConReintentos(url, opciones, opts){
   }
 }
 
-/* Resuelve endpoint + headers según el servicio. Los servicios "Proxy *" hablan
-   con el servidor propio (YONI_SERVER) y NO llevan cabecera Authorization desde
-   el navegador: las claves reales viven únicamente en ese servidor. */
+/* Resuelve endpoint + headers según el servicio. */
 function resolverConexion(servicio, modo){ // modo: "chat" | "models"
-  if(servicio === "Proxy Mistral"){
-    return { endpoint: YONI_SERVER + (modo==="models" ? "/api/mistral/models" : "/api/mistral/chat"), headers:{ "Content-Type":"application/json" }, requiereClave:false };
-  }
-  if(servicio === "Proxy OpenRouter"){
-    return { endpoint: YONI_SERVER + (modo==="models" ? "/api/openrouter/models" : "/api/openrouter/chat"), headers:{ "Content-Type":"application/json" }, requiereClave:false };
-  }
   const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
   const base = servicio==="Morph" ? "https://api.morphllm.com/v1" : "https://api.mistral.ai/v1";
   return {
@@ -1883,7 +1952,7 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
 async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagenes){
   const conexion = resolverConexion(servicio, "chat");
   if(conexion.requiereClave && !conexion.KEY){
-    agregarMensajeIA(`[Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs", o usa "Acceso especial" en el menú.]`, servicio);
+    agregarMensajeIA(`[Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs".]`, servicio);
     return;
   }
 
@@ -1937,11 +2006,12 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
       }
       const roto = ++errores_clave_consecutivos[servicio] >= UMBRAL_ERRORES_ROTACION;
       if(roto && conexion.requiereClave && claves_adicionales[servicio] && claves_adicionales[servicio].length){
-        const nuevaClave = claves_adicionales[servicio].shift();
+        const entradaClave = claves_adicionales[servicio].shift();
+        const nuevaClave = (typeof entradaClave === "string") ? entradaClave : entradaClave.clave;
         if(servicio==="Morph") MORPH_KEY = nuevaClave; else MISTRAL_KEY = nuevaClave;
         guardarConfiguracion(); guardarClavesAdicionales();
         errores_clave_consecutivos[servicio] = 0;
-        agregarMensajeIA(`Tu clave de ${servicio} dejó de funcionar (error ${res.status}). Se cambió automáticamente a una de tus claves adicionales guardadas. Reintentando tu pregunta...`, servicio);
+        agregarMensajeIA(`Tu clave de ${servicio} dejó de funcionar (error ${res.status}). Se cambió automáticamente a una de tus claves adicionales guardadas y esa pasa a ser la clave oficial. Reintentando tu pregunta...`, servicio);
         ponerBotonEnModoEnviar(); generacionActual.activa = false;
         return llamarServicioIA(servicio, pregunta, modelo, false);
       }
@@ -2120,33 +2190,9 @@ async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregun
 }
 
 /* --------------------------------- Recargar modelos --------------------------- */
-function esServicioProxy(servicio){
-  return servicio === "Proxy Mistral" || servicio === "Proxy OpenRouter";
-}
-
 async function recargarModelos(){
   reproducirSonido("boton");
   const servicio = $("#sp_servicio").value;
-  if(esServicioProxy(servicio)){
-    const ENDPOINT = servicio==="Proxy OpenRouter" ? (YONI_SERVER+"/api/openrouter/models") : (YONI_SERVER+"/api/mistral/models");
-    try{
-      const res = await fetch(ENDPOINT);
-      if(!res.ok) throw new Error("http "+res.status);
-      const data = await res.json();
-      const ids = (data.data||[]).map(m=>m.id).filter(id=> !/embed|moderation/i.test(id));
-      if(ids.length){
-        modelos_db[servicio] = ids;
-        guardarConfiguracion();
-        poblarSelectorModelos();
-        reproducirSonido("modelos_cargados");
-        mostrarToast(`${ids.length} modelos cargados para ${servicio}`);
-      } else { throw new Error("vacío"); }
-    }catch(e){
-      reproducirSonido("modelos_error");
-      mostrarToast(`No pude recargar modelos de ${servicio} en línea, se mantiene la lista predeterminada.`);
-    }
-    return;
-  }
   const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
   const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/models" : "https://api.mistral.ai/v1/models";
   if(!KEY){ mostrarToast("Configura primero tu clave de "+servicio); reproducirSonido("modelos_error"); return; }
@@ -2299,7 +2345,7 @@ async function procesarPregunta(pregunta){
 
   // envío normal a la IA
   const modelo = $("#sp_modelo").value;
-  reproducirSonido(esServicioProxy(servicio) ? "enviar_mistral" : (servicio==="Morph" ? "enviar_morph" : "enviar_mistral"));
+  reproducirSonido(servicio==="Morph" ? "enviar_morph" : "enviar_mistral");
   let mensajeUsuario = pregunta;
   let adjuntosTexto = "";
   let archivoGrande = null;
@@ -2332,6 +2378,7 @@ async function procesarPregunta(pregunta){
   }
   let preguntaFinal = pregunta;
   if(adjuntosTexto) preguntaFinal = pregunta + "\n\n" + adjuntosTexto;
+
   await llamarServicioIA(servicio, preguntaFinal, modelo, false, imagenesAdjuntas);
 }
 
@@ -2409,16 +2456,117 @@ function renderListaComandos(){
 function renderListaClaves(){
   const cont = $("#lista-claves-adicionales");
   cont.innerHTML = "";
+  let hayAlguna = false;
   ["Mistral AI","Morph"].forEach(serv=>{
-    (claves_adicionales[serv]||[]).forEach((k,i)=>{
+    (claves_adicionales[serv]||[]).forEach((entrada,i)=>{
+      hayAlguna = true;
+      // compatibilidad con datos antiguos guardados como string plano
+      const esObjeto = entrada && typeof entrada === "object";
+      const nombre = esObjeto ? entrada.nombre : ("Clave adicional "+(i+1));
+      const clave = esObjeto ? entrada.clave : entrada;
       const item = document.createElement("div"); item.className="item-clave";
-      item.innerHTML = `<div class="info">Clave adicional de ${serv} #${i+1} (••••${k.slice(-4)})</div>
+      item.innerHTML = `<div class="info">${escaparHTML(nombre)} · ${serv} (••••${clave.slice(-4)})</div>
         <button class="mini-btn rojo" data-borrar>Quitar</button>`;
       item.querySelector("[data-borrar]").addEventListener("click", ()=>{
         claves_adicionales[serv].splice(i,1); guardarClavesAdicionales(); renderListaClaves();
+        mostrarToast(nombre+" eliminada");
       });
       cont.appendChild(item);
     });
+  });
+  if(!hayAlguna){
+    const p = document.createElement("p");
+    p.style.color = "var(--texto-tenue)";
+    p.style.fontSize = "0.85rem";
+    p.textContent = "No hay claves adicionales guardadas.";
+    cont.appendChild(p);
+  }
+}
+
+/* --------------------------------- Mis sonidos (IndexedDB) -------------------- */
+/* Descarga un sonido individual desde Google Drive y lo guarda en IndexedDB.
+   Si Google bloquea la descarga directa (pantalla de advertencia de virus
+   para archivos grandes, o el archivo no es realmente público), el fetch
+   puede traer HTML en vez de audio -- se detecta por el content-type y se
+   informa el error en vez de guardar basura como si fuera un sonido. */
+async function descargarUnSonido(tipoInfo){
+  if(!tipoInfo.driveId) throw new Error("Sin enlace de Google Drive configurado para este sonido");
+  const res = await fetch(urlDescargaDirectaDrive(tipoInfo.driveId));
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const tipoContenido = res.headers.get("content-type") || "";
+  if(/text\/html/i.test(tipoContenido)){
+    throw new Error("Google Drive devolvió una página en vez del audio (revisa que el archivo sea público: \"Cualquier persona con el enlace\")");
+  }
+  const blob = await res.blob();
+  if(blob.size === 0) throw new Error("El archivo descargado está vacío");
+  await guardarSonidoPropio(tipoInfo.id, blob);
+  delete cacheUrlSonidoPropio[tipoInfo.id];
+}
+
+async function descargarTodosLosSonidos(){
+  mostrarToast("Descargando sonidos desde Google Drive...");
+  let exitos = 0, fallos = 0;
+  for(const t of TIPOS_SONIDO){
+    try{
+      await descargarUnSonido(t);
+      exitos++;
+    }catch(e){
+      fallos++;
+    }
+    renderListaMisSonidos();
+  }
+  if(fallos === 0){
+    mostrarToast(`Se descargaron los ${exitos} sonidos correctamente ✅`);
+  } else {
+    mostrarToast(`${exitos} sonidos descargados, ${fallos} fallaron (revisa cuáles en la lista)`);
+  }
+}
+
+async function renderListaMisSonidos(){
+  const cont = $("#lista-mis-sonidos");
+  cont.innerHTML = "<p style='opacity:0.7'>Cargando...</p>";
+  let tiposConSonido = [];
+  try{ tiposConSonido = await listarTiposConSonidoPropio(); }catch(e){ /* IndexedDB no disponible */ }
+  cont.innerHTML = "";
+  TIPOS_SONIDO.forEach(t=>{
+    const tieneSonido = tiposConSonido.includes(t.id);
+    const item = document.createElement("div");
+    item.className = "item-mi-sonido";
+    item.innerHTML = `
+      <div class="info">
+        <span>${escaparHTML(t.etiqueta)}</span>
+        <span class="estado-sonido">${tieneSonido ? "🔊 Descargado" : "⬇️ Aún no descargado (usando tono generado)"}</span>
+      </div>
+      <div class="acciones">
+        <button class="mini-btn" type="button" data-probar>▶️</button>
+        <button class="mini-btn" style="background:#0288D1" type="button" data-descargar>⬇️</button>
+        ${tieneSonido ? `<button class="mini-btn rojo" type="button" data-quitar>Quitar</button>` : ""}
+      </div>`;
+    item.querySelector("[data-probar]").addEventListener("click", ()=> reproducirSonido(t.id));
+    item.querySelector("[data-descargar]").addEventListener("click", async ()=>{
+      mostrarToast(`Descargando "${t.etiqueta}"...`);
+      try{
+        await descargarUnSonido(t);
+        mostrarToast(`"${t.etiqueta}" descargado ✅`);
+        renderListaMisSonidos();
+      }catch(err){
+        mostrarToast(`No se pudo descargar "${t.etiqueta}": ${err.message}`);
+      }
+    });
+    const btnQuitar = item.querySelector("[data-quitar]");
+    if(btnQuitar){
+      btnQuitar.addEventListener("click", async ()=>{
+        try{
+          await borrarSonidoPropio(t.id);
+          delete cacheUrlSonidoPropio[t.id];
+          mostrarToast(`Sonido eliminado de "${t.etiqueta}"`);
+          renderListaMisSonidos();
+        }catch(err){
+          mostrarToast("No se pudo eliminar el sonido");
+        }
+      });
+    }
+    cont.appendChild(item);
   });
 }
 
@@ -2462,10 +2610,8 @@ function configurarDialogoConsentimiento(){
 
 function init(){
   // estado inicial de selects
-  actualizarVisibilidadOpcionesProxy();
   $("#sp_servicio").value = servicio_actual;
   poblarSelectorModelos();
-  actualizarTextoBotonAccesoEspecial();
   $("#txt_titulo").textContent = "Yoni Tech - " + tema_actual;
 
   elConversacion.addEventListener("scroll", actualizarBotonIrAlFinal);
@@ -2561,9 +2707,15 @@ function init(){
         $("#chk-voz-activa").checked = voz_cfg.activada;
         $("#rango-velocidad").value = voz_cfg.velocidad; $("#lbl-velocidad").textContent = voz_cfg.velocidad;
         $("#rango-tono").value = voz_cfg.tono; $("#lbl-tono").textContent = voz_cfg.tono;
-        $("#rango-volumen-app").value = volumen_app; $("#lbl-volumen-app").textContent = volumen_app;
         poblarVocesDisponibles();
         abrirDialogo("ov-voz");
+      }
+      else if(acc==="configurar-sonidos"){
+        $("#chk-sonido-activado").checked = sonido_activado;
+        $("#chk-usar-sonidos-descargados").checked = usar_sonidos_descargados;
+        $("#rango-volumen-app").value = volumen_app; $("#lbl-volumen-app").textContent = volumen_app;
+        renderListaMisSonidos();
+        abrirDialogo("ov-sonidos");
       }
       else if(acc==="comandos"){ renderListaComandos(); abrirDialogo("ov-comandos"); }
       else if(acc==="notas"){ renderListaNotas(); abrirDialogo("ov-notas"); }
@@ -2572,30 +2724,7 @@ function init(){
         abrirDialogo("ov-dispositivo");
         obtenerResumenDispositivo().then(t=> $("#contenido-dispositivo").textContent = t);
       }
-      else if(acc==="acceso-especial"){
-        $("#in-acceso-especial").value = "";
-        $("#txt-acceso-especial-ayuda").textContent = acceso_especial_activo
-          ? "Ingresa la contraseña para desactivar el acceso especial y volver a tus propias claves API."
-          : "Ingresa la contraseña para conectar automáticamente con el servidor unificado de Yoni Tech (sin necesidad de tus propias claves API).";
-        $("#form-acceso-especial").dataset.modo = acceso_especial_activo ? "desactivar" : "activar";
-        abrirDialogo("ov-acceso-especial");
-      }
     });
-  });
-
-  $("#form-acceso-especial").addEventListener("submit", (e)=>{
-    e.preventDefault();
-    reproducirSonido("boton");
-    const clave = $("#in-acceso-especial").value;
-    if(clave !== CLAVE_ACCESO_ESPECIAL){
-      mostrarToast("Contraseña incorrecta");
-      reproducirSonido("error_solicitud");
-      return;
-    }
-    const modo = $("#form-acceso-especial").dataset.modo;
-    cerrarDialogo("ov-acceso-especial");
-    if(modo === "desactivar") desactivarAccesoEspecial();
-    else activarAccesoEspecial();
   });
 
   // "Más opciones"
@@ -2652,6 +2781,31 @@ function init(){
   $("#btn-validar-mistral").addEventListener("click", ()=> validarClave("Mistral AI"));
   $("#btn-validar-morph").addEventListener("click", ()=> validarClave("Morph"));
 
+  // claves adicionales de respaldo (portado del plugin original)
+  let servicioClaveAdicionalActual = null;
+  function abrirDialogoClaveAdicional(servicio){
+    servicioClaveAdicionalActual = servicio;
+    const nombreGenerado = generarNombreClaveAdicional(servicio);
+    $("#in-nombre-clave-adicional").value = nombreGenerado;
+    $("#in-nombre-clave-adicional").dataset.nombreGenerado = nombreGenerado;
+    $("#in-clave-adicional").value = "";
+    $("#txt-clave-adicional-servicio").textContent = `Esta clave se guardará como respaldo de ${servicio}. Si tu clave principal de ${servicio} deja de funcionar, esta pasará a ser la clave oficial automáticamente.`;
+    abrirDialogo("ov-clave-adicional");
+  }
+  $("#btn-agregar-clave-mistral").addEventListener("click", ()=>{ reproducirSonido("boton"); abrirDialogoClaveAdicional("Mistral AI"); });
+  $("#btn-agregar-clave-morph").addEventListener("click", ()=>{ reproducirSonido("boton"); abrirDialogoClaveAdicional("Morph"); });
+  $("#form-clave-adicional").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    reproducirSonido("boton");
+    const claveNueva = trim($("#in-clave-adicional").value);
+    if(claveNueva.length === 0){ mostrarToast("La clave adicional no puede estar vacía"); return; }
+    const nombreGenerado = $("#in-nombre-clave-adicional").dataset.nombreGenerado;
+    agregarClaveAdicional(servicioClaveAdicionalActual, claveNueva, nombreGenerado);
+    mostrarToast("Clave adicional guardada como "+nombreGenerado);
+    cerrarDialogo("ov-clave-adicional");
+    renderListaClaves();
+  });
+
   // tokens
   $("#btn-guardar-tokens").addEventListener("click", ()=>{
     reproducirSonido("boton");
@@ -2665,14 +2819,29 @@ function init(){
   $("#rango-tono").addEventListener("input", (e)=> $("#lbl-tono").textContent = e.target.value);
   $("#rango-volumen-app").addEventListener("input", (e)=> $("#lbl-volumen-app").textContent = e.target.value);
   $("#btn-guardar-voz").addEventListener("click", ()=>{
-    reproducirSonido("boton");
     voz_cfg.activada = $("#chk-voz-activa").checked;
     voz_cfg.velocidad = parseInt($("#rango-velocidad").value,10);
     voz_cfg.tono = parseInt($("#rango-tono").value,10);
     voz_cfg.voiceURI = $("#sel-voz").value;
-    volumen_app = parseInt($("#rango-volumen-app").value,10);
-    guardarVoz(); LS.set("yt_volumen_app", volumen_app);
+    guardarVoz();
+    reproducirSonido("boton");
     cerrarDialogo("ov-voz"); mostrarToast("Voz configurada");
+  });
+
+  // sonidos
+  $("#btn-guardar-sonidos").addEventListener("click", ()=>{
+    sonido_activado = $("#chk-sonido-activado").checked;
+    usar_sonidos_descargados = $("#chk-usar-sonidos-descargados").checked;
+    volumen_app = parseInt($("#rango-volumen-app").value,10);
+    LS.set("yt_sonido_activado", sonido_activado);
+    LS.set("yt_usar_sonidos_descargados", usar_sonidos_descargados);
+    LS.set("yt_volumen_app", volumen_app);
+    reproducirSonido("boton");
+    cerrarDialogo("ov-sonidos"); mostrarToast("Sonidos configurados");
+  });
+  $("#btn-descargar-todos-sonidos").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    descargarTodosLosSonidos();
   });
 
   // comandos personalizados
