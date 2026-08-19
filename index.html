@@ -73,7 +73,15 @@
   .msg-ia .msg-cabecera{ color:var(--naranja); }
   .msg-contenido{ font-size:1rem; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
   .msg-contenido a{ word-break:break-all; }
-  .msg-separador{ border:none; border-top:1px solid var(--border); margin:10px 0; }
+  .msg-separador{ border:none; border-top:2px solid var(--border); margin:12px 0; }
+  .msg-encabezado{
+    font-weight:800; color:var(--oro); margin:12px 0 6px; line-height:1.3;
+    border-bottom:1px solid var(--border); padding-bottom:4px;
+  }
+  .msg-encabezado.nivel-1, .msg-encabezado.nivel-2{ font-size:1.12em; }
+  .msg-encabezado.nivel-3{ font-size:1.04em; }
+  .msg-encabezado.nivel-4, .msg-encabezado.nivel-5, .msg-encabezado.nivel-6{ font-size:1em; }
+  .msg-contenido:first-child, .msg-encabezado:first-child{ margin-top:0; }
   .bloque-codigo{ background:var(--code-bg); border-radius:8px; padding:10px; margin:6px 0; }
   .bloque-codigo-header{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
   .bloque-codigo-lang{ color:var(--oro); font-weight:700; font-size:0.8rem; flex:1; }
@@ -180,10 +188,16 @@
     <button class="btn btn-sidebar" id="btn_mas_opciones" aria-haspopup="dialog">Abrir barra lateral</button>
   </div>
 
-  <div class="selectores">
+  <p class="visually-hidden" id="ayuda-selectores">
+    Los siguientes dos campos son listas desplegables nativas del navegador. Con NVDA en modo formulario, las flechas
+    arriba y abajo cambian el valor seleccionado, no mueven el cursor de revisión. Para seguir explorando el resto de
+    la página con las flechas después de pasar por aquí, pulsa Escape para salir del modo formulario, o simplemente
+    sigue pulsando Tab para continuar hacia el siguiente control.
+  </p>
+  <div class="selectores" role="group" aria-label="Selección de servicio y modelo de inteligencia artificial" aria-describedby="ayuda-selectores">
     <div class="fila-selector">
       <label for="sp_servicio">Servicio:</label>
-      <select id="sp_servicio">
+      <select id="sp_servicio" aria-describedby="ayuda-selectores">
         <option value="Mistral AI">Mistral AI</option>
         <option value="Morph">Morph</option>
       </select>
@@ -191,7 +205,7 @@
     </div>
     <div class="fila-selector">
       <label for="sp_modelo">Modelo:</label>
-      <select id="sp_modelo"></select>
+      <select id="sp_modelo" aria-describedby="ayuda-selectores"></select>
     </div>
   </div>
 
@@ -342,6 +356,18 @@
       <label for="in-morph-key">Clave de Morph</label>
       <input type="password" id="in-morph-key" autocomplete="off">
       <small><a href="https://morphllm.com/dashboard" target="_blank" rel="noopener">Obtener clave de Morph →</a></small>
+    </div>
+    <div class="campo">
+      <label for="in-openweather-key">Clave de OpenWeatherMap (clima)</label>
+      <input type="password" id="in-openweather-key" autocomplete="off">
+      <small>
+        Opcional: si la configuras, el clima se consulta con OpenWeatherMap (más preciso y con pronóstico a varios días).
+        Si la dejas vacía, el clima sigue funcionando igual usando Open-Meteo (gratis, sin clave).
+        <a href="https://home.openweathermap.org/api_keys" target="_blank" rel="noopener">Obtener clave de OpenWeatherMap →</a>
+      </small>
+    </div>
+    <div class="fila-2" style="margin-top:8px;">
+      <button class="btn" style="background:var(--indigo)" id="btn-validar-openweather">Probar clave OpenWeatherMap</button>
     </div>
     <div class="campo">
       <label>Claves adicionales de respaldo</label>
@@ -616,6 +642,11 @@ const LS = {
 
 let MISTRAL_KEY = LS.get("yt_mistral_key","");
 let MORPH_KEY = LS.get("yt_morph_key","");
+/* OpenWeatherMap se agrega como un tercer servicio de la app, pero es un
+   servicio "invisible": no aparece en el selector de Servicio/Modelo de la
+   cabecera (ese selector es solo para los servicios de IA conversacional).
+   Se activa solo internamente cuando se detecta una pregunta de clima. */
+let OPENWEATHER_KEY = LS.get("yt_openweather_key","");
 let claves_adicionales = LS.get("yt_claves_adicionales", { "Mistral AI":[], "Morph":[] });
 let errores_clave_consecutivos = { "Mistral AI":0, "Morph":0 };
 const UMBRAL_ERRORES_ROTACION = 3;
@@ -651,6 +682,7 @@ let sonido_activado = LS.get("yt_sonido_activado", true);
 function guardarConfiguracion(){
   LS.set("yt_mistral_key", MISTRAL_KEY);
   LS.set("yt_morph_key", MORPH_KEY);
+  LS.set("yt_openweather_key", OPENWEATHER_KEY);
   LS.set("yt_servicio_actual", servicio_actual);
   LS.set("yt_modelo_actual", modelo_actual);
   LS.set("yt_modelos_db", modelos_db);
@@ -857,6 +889,39 @@ function autoScroll(){
   });
 }
 
+/* Divide un bloque de texto en líneas y, cada vez que encuentra un
+   encabezado Markdown (#, ##, ###...), lo separa como un título visual
+   independiente (clase .msg-encabezado) en vez de mezclarlo con el
+   párrafo -- así los encabezados siempre funcionan como separadores
+   claros entre secciones, tanto en el render final como en vivo. */
+function agregarTextoConEncabezados(texto, layout){
+  if(trim(texto).length === 0) return;
+  const lineas = texto.split("\n");
+  let bufferParrafo = [];
+  const volcarParrafo = ()=>{
+    if(bufferParrafo.length && trim(bufferParrafo.join("\n")).length){
+      const c = document.createElement("div");
+      c.className = "msg-contenido";
+      c.innerHTML = linkificar(bufferParrafo.join("\n"));
+      layout.appendChild(c);
+    }
+    bufferParrafo = [];
+  };
+  lineas.forEach(linea=>{
+    const m = linea.match(/^(#{1,6})\s+(\S.*)$/);
+    if(m){
+      volcarParrafo();
+      const h = document.createElement("div");
+      h.className = "msg-encabezado nivel-"+m[1].length;
+      h.textContent = trim(m[2]);
+      layout.appendChild(h);
+    } else {
+      bufferParrafo.push(linea);
+    }
+  });
+  volcarParrafo();
+}
+
 function linkificar(texto){
   let html = escaparHTML(texto);
   const urls = extraer_urls(texto);
@@ -1018,21 +1083,13 @@ function renderContenidoMensajeIA(texto, layout){
     const bloques = split_multimensaje(textoRestante);
     (bloques.length? bloques : [textoRestante]).forEach((bloque, i)=>{
       if(i>0){ const hrEl = document.createElement("hr"); hrEl.className="msg-separador"; layout.appendChild(hrEl); }
-      const c = document.createElement("div");
-      c.className = "msg-contenido";
-      c.innerHTML = linkificar(bloque);
-      layout.appendChild(c);
+      agregarTextoConEncabezados(bloque, layout);
     });
   } else {
     partes.forEach(p=>{
       if(p.tipo==="texto"){
         const bloques = split_multimensaje(p.contenido);
-        bloques.forEach(bloque=>{
-          const c = document.createElement("div");
-          c.className = "msg-contenido";
-          c.innerHTML = linkificar(bloque);
-          layout.appendChild(c);
-        });
+        bloques.forEach(bloque=> agregarTextoConEncabezados(bloque, layout));
       } else {
         agregarBloqueCodigo(p.lenguaje, p.codigo, layout);
       }
@@ -1174,7 +1231,7 @@ const TEXTO_SYSTEM_PROMPT_NOTAS =
 "[[NOTA_ACCION:{\"tipo\":\"guardar\",\"titulo\":\"titulo o vacio\",\"contenido\":\"el texto a guardar\",\"extension\":\"txt o html\"}]] para guardar, " +
 "[[NOTA_ACCION:{\"tipo\":\"editar\",\"tema\":\"tema o nombre para localizar la nota\",\"contenido\":\"texto nuevo\",\"modo\":\"sobrescribir o agregar\"}]] para editar, " +
 "[[NOTA_ACCION:{\"tipo\":\"leer\",\"tema\":\"tema o nombre para localizar la nota\"}]] para leer/abrir una nota. " +
-"Nunca muestres ese bloque como parte del texto conversacional que lee el usuario, ni lo menciones; el sistema lo procesa por separado. Tu respuesta visible al usuario debe sonar natural, por ejemplo 'Listo, ya te la guarde' o '¿Quieres que te la lea?', y el bloque JSON va aparte, al final.";
+"El sistema ya se encarga de decirle al usuario que la nota quedo guardada (con un mensaje como 'Nota guardada: \"titulo\". ¿Quieres que agregue algo mas o la abra para revisarla?'), asi que TU respuesta visible NUNCA debe anunciar ni confirmar el guardado con frases como 'Listo, ya te la guarde' o 'Nota guardada' -- eso lo dice el sistema aparte, justo despues de tu respuesta. Tu texto visible debe limitarse a responder la pregunta o el pedido original del usuario (por ejemplo, si te pidieron el clima y guardarlo, tu texto visible es solo la respuesta del clima), y el bloque JSON [[NOTA_ACCION:...]] va SIEMPRE en su propia linea nueva, al final absoluto de tu respuesta, sin ningun texto tuyo despues de el. Nunca muestres ese bloque como parte del texto conversacional que lee el usuario, ni lo menciones ni lo expliques.";
 
 function generarTituloAutomatico(){
   return "Nota " + new Date().toLocaleString("es-ES");
@@ -1217,22 +1274,150 @@ function interceptarYEjecutarAccionNota(textoRespuesta){
   if(!accion || !accion.tipo) return [textoLimpio, null];
   if(accion.tipo==="guardar"){
     const nombreArchivo = guardarNota(accion.titulo, accion.contenido||"", accion.extension);
-    return [textoLimpio, `(Nota guardada como "${nombreArchivo}" en tus notas.)`];
+    return [textoLimpio, `Nota guardada: "${nombreArchivo}". ¿Quieres que agregue algo más o la abra para revisarla?`];
   } else if(accion.tipo==="editar"){
     const [exito, nombreArchivo] = editarNota(accion.tema, accion.contenido||"", accion.modo||"agregar");
-    return [textoLimpio, exito ? `(Nota "${nombreArchivo}" actualizada.)` : `(No encontré una nota relacionada con "${accion.tema}" para editar.)`];
+    return [textoLimpio, exito ? `Nota "${nombreArchivo}" actualizada.` : `No encontré una nota relacionada con "${accion.tema}" para editar.`];
   } else if(accion.tipo==="leer"){
     const [contenido, nombreArchivo] = leerNota(accion.tema);
-    return [textoLimpio, contenido!==null ? `(Contenido de "${nombreArchivo}":)\n${contenido}` : `(No encontré ninguna nota relacionada con "${accion.tema}".)`];
+    return [textoLimpio, contenido!==null ? `Contenido de "${nombreArchivo}":\n${contenido}` : `No encontré ninguna nota relacionada con "${accion.tema}".`];
   }
   return [textoLimpio, null];
 }
 
 /* --------------------------------- Clima ----------------------------------
-   El plugin original necesitaba una clave de OpenWeather. Aquí usamos
-   Open-Meteo, que es gratis, no necesita clave y funciona directo desde el
-   navegador (CORS abierto) — así el clima SÍ funciona sin que tengas que
-   configurar nada. */
+   Yoni Tech usa DOS fuentes de clima, como un tercer servicio "invisible"
+   (no aparece en el selector de Servicio/Modelo de la cabecera, que es
+   solo para los servicios de IA conversacional; este se activa solo
+   internamente cuando se detecta una pregunta de clima):
+
+   1) OpenWeatherMap: se usa automáticamente SI el usuario configuró su
+      clave en "Gestionar APIs" (portado del main.lua original: mismo
+      formato de respuesta, mismos endpoints /weather y /forecast, y el
+      pronóstico a futuro con "mañana" u otros días).
+   2) Open-Meteo: gratis y sin clave, funciona siempre desde el navegador
+      (CORS abierto). Es el respaldo automático si no hay clave de
+      OpenWeatherMap configurada, o si OpenWeatherMap falla por cualquier
+      motivo (clave inválida, error de red, límite de cuota, etc.) — así
+      el clima nunca deja de funcionar. */
+
+async function validarClaveOpenWeather(){
+  const clave = trim($("#in-openweather-key").value);
+  if(!clave){ mostrarToast("Escribe una clave primero"); return; }
+  mostrarToast("Comprobando clave de OpenWeatherMap...");
+  try{
+    const url = "https://api.openweathermap.org/data/2.5/weather?q=Havana&appid=" + encodeURIComponent(clave);
+    const res = await fetch(url);
+    if(res.status === 200) mostrarToast("Clave de OpenWeatherMap válida ✅");
+    else if(res.status === 401) mostrarToast("Clave de OpenWeatherMap no autorizada");
+    else mostrarToast(`Clave de OpenWeatherMap inválida (HTTP ${res.status})`);
+  }catch(e){
+    mostrarToast("No se pudo comprobar la clave de OpenWeatherMap (conexión o CORS).");
+  }
+}
+
+/* --- Extracción de ciudad y día a partir de la pregunta (portado del Lua) --- */
+function extraerCiudadYDiaClima(textoLower){
+  let offsetDias = 0;
+  if(/\bma[ñn]ana\b/.test(textoLower)) offsetDias = 1;
+
+  let ciudad = null;
+  let m = textoLower.match(/\ben\s+([a-záéíóúñü][a-záéíóúñü\s]*?)\s*[\?\.!]?$/i);
+  if(m) ciudad = trim(m[1]);
+  if(!ciudad){
+    m = textoLower.match(/\ben\s+([a-záéíóúñü][a-záéíóúñü\s]*?)\s+hoy\b/i);
+    if(m) ciudad = trim(m[1]);
+  }
+  if(!ciudad){
+    m = textoLower.match(/\ben\s+([a-záéíóúñü][a-záéíóúñü\s]*?)\s+ma[ñn]ana\b/i);
+    if(m) ciudad = trim(m[1]);
+  }
+  if(!ciudad){
+    m = textoLower.match(/(?:clima|tiempo|pronostico|pronóstico|temperatura)\s+(?:de|para)\s+([a-záéíóúñü][a-záéíóúñü\s]*)/i);
+    if(m) ciudad = trim(m[1]);
+  }
+  if(ciudad){
+    ciudad = ciudad.replace(/\s+ma[ñn]ana\s*$/i, "").replace(/\s+hoy\s*$/i, "");
+    ciudad = trim(ciudad);
+  }
+  return { ciudad, offsetDias };
+}
+
+/* ------------------------------ OpenWeatherMap ------------------------------ */
+const CODIGOS_CLIMA_OWM = {
+  "01d":"cielo despejado","01n":"cielo despejado","02d":"pocas nubes","02n":"pocas nubes",
+  "03d":"nubes dispersas","03n":"nubes dispersas","04d":"nublado","04n":"nublado",
+  "09d":"lluvia moderada","09n":"lluvia moderada","10d":"lluvia","10n":"lluvia",
+  "11d":"tormenta eléctrica","11n":"tormenta eléctrica","13d":"nieve","13n":"nieve",
+  "50d":"neblina","50n":"neblina"
+};
+function traducirCodigoClimaOWM(icono, descripcionOriginal){
+  return CODIGOS_CLIMA_OWM[icono] || descripcionOriginal || "condición desconocida";
+}
+async function geocodificarCiudadOWM(nombreCiudad){
+  const url = "https://api.openweathermap.org/geo/1.0/direct?q=" + encodeURIComponent(nombreCiudad) +
+    "&limit=1&appid=" + encodeURIComponent(OPENWEATHER_KEY);
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("owm_geocoding_error_"+res.status);
+  const datos = await res.json();
+  if(!datos || !datos[0]) return null;
+  return { lat:datos[0].lat, lon:datos[0].lon, nombre:datos[0].name, pais:datos[0].country };
+}
+async function consultarClimaCoordenadasOWM(lat, lon, offsetDias, nombreCiudadMostrar){
+  if(offsetDias === 0){
+    const url = "https://api.openweathermap.org/data/2.5/weather?lat=" + lat + "&lon=" + lon +
+      "&units=metric&lang=es&appid=" + encodeURIComponent(OPENWEATHER_KEY);
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("owm_weather_error_"+res.status);
+    const datos = await res.json();
+    if(!datos || !datos.main) throw new Error("owm_weather_parse_error");
+    const temp = Math.round(datos.main.temp);
+    const sensacion = Math.round(datos.main.feels_like);
+    const humedad = datos.main.humidity;
+    const icono = datos.weather && datos.weather[0] && datos.weather[0].icon;
+    const descOriginal = datos.weather && datos.weather[0] && datos.weather[0].description;
+    const descripcion = traducirCodigoClimaOWM(icono, descOriginal);
+    const viento = (datos.wind && datos.wind.speed) || 0;
+    return `El clima ahora mismo en ${nombreCiudadMostrar} es de ${temp} grados (sensación térmica ${sensacion} grados), con ${descripcion}. Humedad: ${humedad}%. Viento: ${viento.toFixed(1)} m/s.`;
+  } else {
+    const url = "https://api.openweathermap.org/data/2.5/forecast?lat=" + lat + "&lon=" + lon +
+      "&units=metric&lang=es&appid=" + encodeURIComponent(OPENWEATHER_KEY);
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("owm_forecast_error_"+res.status);
+    const datos = await res.json();
+    if(!datos || !datos.list) throw new Error("owm_forecast_parse_error");
+    const fechaObjetivo = new Date(Date.now() + offsetDias*86400000).toISOString().slice(0,10);
+    let mejorBloque = null, mejorDiferenciaHora = 999;
+    datos.list.forEach(bloque=>{
+      const mFecha = bloque.dt_txt && bloque.dt_txt.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):/);
+      if(mFecha && mFecha[1] === fechaObjetivo){
+        const diferencia = Math.abs(parseInt(mFecha[2],10) - 12);
+        if(diferencia < mejorDiferenciaHora){ mejorDiferenciaHora = diferencia; mejorBloque = bloque; }
+      }
+    });
+    if(!mejorBloque) throw new Error("owm_forecast_sin_datos");
+    const temp = Math.round(mejorBloque.main.temp);
+    const tempMin = Math.round(mejorBloque.main.temp_min);
+    const tempMax = Math.round(mejorBloque.main.temp_max);
+    const icono = mejorBloque.weather && mejorBloque.weather[0] && mejorBloque.weather[0].icon;
+    const descOriginal = mejorBloque.weather && mejorBloque.weather[0] && mejorBloque.weather[0].description;
+    const descripcion = traducirCodigoClimaOWM(icono, descOriginal);
+    const humedad = mejorBloque.main.humidity;
+    const diaTexto = offsetDias === 1 ? "mañana" : `dentro de ${offsetDias} días`;
+    return `El pronóstico para ${diaTexto} en ${nombreCiudadMostrar} es de ${temp} grados (mínima ${tempMin}, máxima ${tempMax}), con ${descripcion}. Humedad estimada: ${humedad}%.`;
+  }
+}
+async function consultarClimaPorPreguntaOWM(textoLower){
+  const { ciudad, offsetDias } = extraerCiudadYDiaClima(textoLower);
+  if(!ciudad) return null; // se resuelve arriba pidiendo la ciudad
+  const geo = await geocodificarCiudadOWM(ciudad);
+  if(!geo) throw new Error("owm_ciudad_no_encontrada");
+  let nombreMostrar = geo.nombre || ciudad;
+  if(geo.pais) nombreMostrar += ", " + geo.pais;
+  return await consultarClimaCoordenadasOWM(geo.lat, geo.lon, offsetDias, nombreMostrar);
+}
+
+/* -------------------------------- Open-Meteo (respaldo sin clave) ----------- */
 async function geocodificarCiudad(nombreCiudad){
   const url = "https://geocoding-api.open-meteo.com/v1/search?count=1&language=es&name=" + encodeURIComponent(nombreCiudad);
   const res = await fetch(url);
@@ -1248,7 +1433,19 @@ const CODIGOS_CLIMA = {
   61:"lluvia ligera",63:"lluvia moderada",65:"lluvia intensa",71:"nevada ligera",73:"nevada moderada",75:"nevada intensa",
   80:"chubascos ligeros",81:"chubascos moderados",82:"chubascos intensos",95:"tormenta eléctrica",96:"tormenta con granizo",99:"tormenta fuerte con granizo"
 };
-async function consultarClimaCoordenadas(lat, lon, nombreCiudadMostrar){
+async function consultarClimaCoordenadas(lat, lon, nombreCiudadMostrar, offsetDias){
+  if(offsetDias){
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=${Math.min(offsetDias+1,16)}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("forecast_error");
+    const data = await res.json();
+    const idx = offsetDias;
+    if(!data.daily || data.daily.temperature_2m_max[idx]===undefined) throw new Error("forecast_sin_datos");
+    const desc = CODIGOS_CLIMA[data.daily.weather_code[idx]] || "condiciones variables";
+    const max = data.daily.temperature_2m_max[idx], min = data.daily.temperature_2m_min[idx];
+    const diaTexto = offsetDias === 1 ? "mañana" : `dentro de ${offsetDias} días`;
+    return `El pronóstico para ${diaTexto} en ${nombreCiudadMostrar}: ${desc}, máxima ${max}°C, mínima ${min}°C.`;
+  }
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
   const res = await fetch(url);
   if(!res.ok) throw new Error("forecast_error");
@@ -1259,19 +1456,28 @@ async function consultarClimaCoordenadas(lat, lon, nombreCiudadMostrar){
   return `El clima en ${nombreCiudadMostrar} ahora: ${desc}, ${c.temperature_2m}°C (sensación ${c.apparent_temperature}°C). ` +
          `Humedad ${c.relative_humidity_2m}%, viento ${c.wind_speed_10m} km/h. Hoy: máxima ${max}°C, mínima ${min}°C.`;
 }
-function extraerCiudadYDiaClima(textoLower){
-  let m = textoLower.match(/(?:clima|tiempo|pronostico|pronóstico|temperatura)\s+(?:en|de|para)\s+([a-záéíóúñü\s]+)/i);
-  if(m) return trim(m[1]);
-  m = textoLower.match(/(?:en|de|para)\s+([a-záéíóúñü\s]+)\s*(?:\?|$)/i);
-  if(m) return trim(m[1]);
-  return null;
-}
-async function consultarClimaPorPregunta(textoLower){
-  const ciudad = extraerCiudadYDiaClima(textoLower);
+async function consultarClimaPorPreguntaOpenMeteo(textoLower){
+  const { ciudad, offsetDias } = extraerCiudadYDiaClima(textoLower);
   if(!ciudad) return "¿De qué ciudad quieres saber el clima?";
   const geo = await geocodificarCiudad(ciudad);
   if(!geo) return `No pude encontrar la ciudad "${ciudad}". ¿Puedes verificarla?`;
-  return await consultarClimaCoordenadas(geo.lat, geo.lon, geo.nombre);
+  return await consultarClimaCoordenadas(geo.lat, geo.lon, geo.nombre, offsetDias);
+}
+
+/* --- Punto de entrada único: intenta OpenWeatherMap si hay clave, y si
+   falla por lo que sea, cae automáticamente a Open-Meteo sin que el
+   usuario note ningún corte en el servicio. --- */
+async function consultarClimaPorPregunta(textoLower){
+  if(OPENWEATHER_KEY){
+    try{
+      const resultado = await consultarClimaPorPreguntaOWM(textoLower);
+      if(resultado) return resultado;
+    }catch(e){
+      // OpenWeatherMap falló (clave inválida, cuota, red, ciudad no encontrada, etc.):
+      // seguimos abajo con Open-Meteo como respaldo automático, sin interrumpir al usuario.
+    }
+  }
+  return await consultarClimaPorPreguntaOpenMeteo(textoLower);
 }
 
 /* --------------------------------- Música -----------------------------------
@@ -1635,6 +1841,9 @@ function promptSistema(){
   system += "Cuando des listas, opciones, pasos, tablas, resumenes o cualquier elemento multiple, DEBES separar CADA seccion independiente con una linea que contenga exactamente '---'. " +
     "Esto incluye separar el resumen inicial de la tabla, los parrafos de recomendaciones y cualquier bloque de texto que sea una unidad distinta. " +
     "NUNCA muestres un resumen seguido de una tabla sin un '---' entre ellos. Toda seccion distinta debe estar delimitada por '---' antes y despues. " +
+    "Ademas, siempre que una respuesta tenga varias secciones tematicas (por ejemplo 'Resumen', 'Pasos', 'Recomendaciones', 'Ejemplo'), " +
+    "usa encabezados Markdown reales al inicio de cada seccion (por ejemplo '## Resumen', '### Pasos a seguir'), no solo texto en negrita. " +
+    "La interfaz convierte automaticamente cada encabezado en un separador visual claro, asi que usalos con libertad para organizar respuestas largas o con varias partes. " +
     "Jamas saludes ni te presentes despues del primer mensaje. Responde directamente a la peticion del usuario, sin introducciones ni frases de cortesia. " +
     "No inventes informacion. Si no sabes algo, dilo claramente. No repitas listas ni entres en bucles. Responde de manera directa, clara y concisa, ajustandote a lo que el usuario pide.";
   system += TEXTO_SYSTEM_PROMPT_NOTAS;
@@ -1647,7 +1856,8 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   "dónde está un botón, o parece perdido, explícaselo con precisión usando esta guía: " +
   "En la parte de ARRIBA está el título 'Yoni Tech' y un botón con ícono de menú (☰) que abre la barra lateral. " +
   "La BARRA LATERAL (al abrirla) tiene estos botones: 'Gestionar APIs' (para poner o cambiar las claves de Mistral AI y Morph, " +
-  "y también para agregar claves adicionales de respaldo que se activan automáticamente si la clave principal deja de funcionar), " +
+  "y también para agregar claves adicionales de respaldo que se activan automáticamente si la clave principal deja de funcionar; ahí mismo " +
+  "también se puede poner una clave de OpenWeatherMap, opcional, para que el clima use ese servicio en vez de Open-Meteo), " +
   "'Voz' (para configurar la lectura en voz alta de las respuestas), 'Sonidos' (para activar/desactivar los 18 sonidos " +
   "originales del plugin, que ya vienen incluidos en el sitio, y ajustar el volumen), 'Info del dispositivo', " +
   "y 'Cerrar barra lateral'. " +
@@ -1664,7 +1874,17 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   "que lo guarda directamente en el dispositivo del usuario. " +
   "No tienes acceso a búsqueda en internet ni a información en tiempo real: si el usuario pide noticias de último momento " +
   "o datos que puedan haber cambiado después de tu entrenamiento, acláraselo honestamente en vez de inventar datos. " +
+  "El clima SÍ funciona siempre, en tiempo real, y NO pasa por ti: la propia interfaz detecta la pregunta de clima " +
+  "(por ejemplo 'cómo está el clima en...', 'clima de...', 'qué tiempo hace en...') y consulta directamente un servicio " +
+  "meteorológico real (OpenWeatherMap si el usuario configuró su clave, o Open-Meteo automáticamente si no la configuró), " +
+  "así que nunca digas que no puedes dar el clima: si te llega una pregunta de clima igual es porque la interfaz no la reconoció, " +
+  "en ese caso pide amablemente que la reformule mencionando claramente la ciudad. " +
   "Si el usuario no sabe usar alguna función, explícasela en pasos simples y claros, mencionando el nombre exacto del botón o menú. " +
+  "Si el usuario usa un lector de pantalla (por ejemplo NVDA) y pregunta por qué las flechas arriba/abajo no navegan por toda la página " +
+  "cuando el foco está en los selectores de 'Servicio' o 'Modelo', explícale que eso es el comportamiento normal de cualquier lista " +
+  "desplegable (select) en un navegador: mientras el foco esté ahí, las flechas cambian la opción seleccionada en vez de mover el cursor " +
+  "del lector de pantalla. Para seguir navegando el resto de la interfaz con las flechas, puede pulsar Escape para salir del modo formulario " +
+  "de NVDA, o usar Tab para avanzar al siguiente control sin necesidad de usar las flechas dentro del select. " +
   "Esta versión web suena con los 18 sonidos ORIGINALES del plugin (no tonos genéricos) desde el primer momento, sin " +
   "necesidad de descargar nada. Si el usuario no escucha nada, dile que vaya al menú lateral → 'Sonidos' y revise que " +
   "'Sonidos de la interfaz activados' esté marcado y que el volumen esté subido ahí mismo.";
@@ -1793,7 +2013,7 @@ function programarActualizacionEnVivo(layout, estado){
    porque todavía puede seguir creciendo; las secciones anteriores ya
    completas se muestran con su formato definitivo (encabezado, código, etc). */
 function actualizarContenidoEnVivo(layout, textoParcial){
-  layout.querySelectorAll(".msg-contenido, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream").forEach(n=>n.remove());
+  layout.querySelectorAll(".msg-contenido, .msg-encabezado, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream").forEach(n=>n.remove());
   renderContenidoEnVivoConEncabezados(textoParcial, layout);
   autoScroll();
 }
@@ -1806,6 +2026,16 @@ function actualizarContenidoEnVivo(layout, textoParcial){
    código ``` abiertos: si un bloque de código no se ha cerrado todavía, se
    muestra tal cual (como texto) hasta que llegue su ``` de cierre. */
 function renderContenidoEnVivoConEncabezados(texto, layout){
+  // Nunca se debe mostrar en pantalla el bloque técnico [[NOTA_ACCION:...]]
+  // (ni siquiera a medias mientras llega por streaming): ese bloque es un
+  // comando interno que procesa el sistema, no texto para el usuario. Como
+  // llega letra por letra, se recorta cualquier apertura "[[NOTA_ACCION:" que
+  // todavía no se haya cerrado (para no mostrarla mientras se completa) y se
+  // elimina por completo si ya llegó cerrada.
+  texto = texto.replace(/\[\[NOTA_ACCION:[\s\S]*?\]\]/g, "");
+  const aperturaNotaSinCerrar = texto.search(/\[\[NOTA_ACCION:/);
+  if(aperturaNotaSinCerrar !== -1) texto = texto.slice(0, aperturaNotaSinCerrar);
+
   // si hay un bloque de código sin cerrar al final, lo dejamos aparte como
   // "en progreso" y formateamos solo lo que viene antes de ese bloque abierto
   const aperturasCodigo = (texto.match(/```/g) || []).length;
@@ -1863,11 +2093,7 @@ function renderSeccionConFormato(seccion, layout){
     const nivel = m[1].length;
     const tituloTexto = m[2].trim();
     const h = document.createElement("div");
-    h.className = "encabezado-stream-titulo";
-    h.style.fontWeight = "700";
-    h.style.fontSize = nivel<=2 ? "1.08em" : "1em";
-    h.style.margin = "10px 0 4px";
-    h.style.color = "var(--oro)";
+    h.className = "encabezado-stream-titulo msg-encabezado nivel-"+nivel;
     h.textContent = tituloTexto;
     layout.appendChild(h);
     cuerpo = seccion.slice(seccion.indexOf(m[0]) + m[0].length).replace(/^\n/, "");
@@ -1915,7 +2141,7 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
 
   // reconstruir el contenido final con el mismo formateo que agregarMensajeIA,
   // mostrando bloques de código y tarjetas de archivo, dentro del layout ya creado
-  layout.querySelectorAll(".msg-contenido, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream, .encabezado-stream-titulo").forEach(n=>n.remove());
+  layout.querySelectorAll(".msg-contenido, .msg-encabezado, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream, .encabezado-stream-titulo").forEach(n=>n.remove());
 
   const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(textoCompleto);
   const textoFinal = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
@@ -2618,6 +2844,7 @@ function init(){
       else if(acc==="editar-perfil"){ $("#in-perfil").value = perfil_usuario; abrirDialogo("ov-perfil"); }
       else if(acc==="gestionar-api"){
         $("#in-mistral-key").value = MISTRAL_KEY; $("#in-morph-key").value = MORPH_KEY;
+        $("#in-openweather-key").value = OPENWEATHER_KEY;
         renderListaClaves(); abrirDialogo("ov-api");
       }
       else if(acc==="cambiar-tokens"){
@@ -2696,11 +2923,13 @@ function init(){
     reproducirSonido("boton");
     MISTRAL_KEY = trim($("#in-mistral-key").value);
     MORPH_KEY = trim($("#in-morph-key").value);
+    OPENWEATHER_KEY = trim($("#in-openweather-key").value);
     guardarConfiguracion();
     cerrarDialogo("ov-api"); mostrarToast("Claves guardadas");
   });
   $("#btn-validar-mistral").addEventListener("click", ()=> validarClave("Mistral AI"));
   $("#btn-validar-morph").addEventListener("click", ()=> validarClave("Morph"));
+  $("#btn-validar-openweather").addEventListener("click", ()=> validarClaveOpenWeather());
 
   // claves adicionales de respaldo (portado del plugin original)
   let servicioClaveAdicionalActual = null;
