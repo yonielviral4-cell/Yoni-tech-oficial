@@ -202,8 +202,8 @@
       <div class="bienvenida" id="bienvenida">
         Hola, soy <strong>Yoni Tech</strong> 👋 — esta es mi versión web. Antes de empezar, abre
         <strong>«Abrir barra lateral → Gestionar APIs»</strong> para poner tu clave de Mistral AI o Morph.
-        Si quieres los sonidos originales del plugin (no los tonos genéricos), ve a
-        <strong>«Abrir barra lateral → Sonidos»</strong> y pulsa «⬇️ Descargar todos los sonidos».
+        Ya sueno con los 18 sonidos originales del plugin desde el primer momento; si prefieres
+        desactivarlos o ajustar el volumen, ve a <strong>«Abrir barra lateral → Sonidos»</strong>.
         Puedo hablarte por voz, escucharte por dictado, leer archivos de texto, PDF e imágenes que adjuntes,
         guardarte notas, darte el clima real de cualquier ciudad, generar archivos descargables cuando programo
         algo largo, y más. Escribe abajo o pulsa el micrófono para empezar.
@@ -232,18 +232,15 @@
     <h2 id="tit-consentimiento">Política de seguridad</h2>
     <p id="txt-consentimiento">
       Al continuar, aceptas que el navegador guarde tu información sensible, como datos personales o información
-      sobre tu navegador, con cookies de seguridad. Al aceptar esta política, también autorizas que la aplicación
-      descargue datos externos a tu navegador (por ejemplo, archivos de sonido) cuando tú lo solicites explícitamente
-      desde las opciones correspondientes. No introduzcas información sensible (contraseñas de otros servicios,
-      datos bancarios, documentos de identidad) en ningún campo de esta aplicación.
+      sobre tu navegador, con cookies de seguridad. No introduzcas información sensible (contraseñas de otros
+      servicios, datos bancarios, documentos de identidad) en ningún campo de esta aplicación.
     </p>
     <p class="ayuda">
       (En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración,
       tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador,
       en este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos.
-      Si activas la descarga de sonidos personalizados desde "Sonidos" en el menú lateral, tu navegador
-      se conectará directamente a Google Drive para traer esos archivos de audio y guardarlos también en
-      este dispositivo; esa conexión ocurre solo cuando tú la inicias, nunca de forma automática ni oculta.)
+      Los sonidos de la interfaz vienen incluidos en este mismo sitio, así que no se descarga nada externo
+      para escucharlos.)
     </p>
     <div class="toggle-row" style="align-items:flex-start;">
       <label for="chk-consentimiento" style="flex:1;">Estoy de acuerdo con la política de seguridad</label>
@@ -440,26 +437,19 @@
     <button class="cerrar-x" data-cerrar="ov-sonidos" aria-label="Cerrar">✕</button>
     <h2 id="tit-sonidos">Sonidos</h2>
     <p class="ayuda">
-      Yoni Tech puede sonar con tonos generados por software, o con los 18 sonidos originales del
-      plugin descargados una sola vez desde Google Drive y guardados en este navegador (no en ningún
-      servidor). Marca la casilla para usar los sonidos descargados; si está desmarcada, se usan los
-      tonos sintéticos.
+      Yoni Tech suena con los 18 sonidos originales del plugin, incluidos directamente en este
+      sitio (no se descargan de ningún servicio externo). Si algún sonido no llega a cargar,
+      se usa automáticamente un tono generado por software como respaldo, para que nunca quede
+      un evento mudo.
     </p>
     <div class="toggle-row">
       <label for="chk-sonido-activado">Sonidos de la interfaz activados</label>
       <span class="switch"><input type="checkbox" id="chk-sonido-activado"><span class="slider-tog"></span></span>
     </div>
-    <div class="toggle-row">
-      <label for="chk-usar-sonidos-descargados">Usar mis sonidos descargados</label>
-      <span class="switch"><input type="checkbox" id="chk-usar-sonidos-descargados"><span class="slider-tog"></span></span>
-    </div>
     <div class="campo" id="campo-volumen-app">
       <label for="rango-volumen-app">Volumen de los sonidos de la app (<span id="lbl-volumen-app">70</span>%)</label>
       <input type="range" id="rango-volumen-app" min="0" max="100" step="5">
       <small>El navegador no puede controlar el volumen general del teléfono por seguridad; esto ajusta solo los sonidos que genera Yoni Tech.</small>
-    </div>
-    <div class="fila-2">
-      <button class="btn" style="background:#0288D1" id="btn-descargar-todos-sonidos">⬇️ Descargar todos los sonidos</button>
     </div>
     <div class="lista-mis-sonidos" id="lista-mis-sonidos"></div>
     <div class="fila-2">
@@ -657,7 +647,6 @@ let notas = LS.get("yt_notas", {}); // { titulo: {contenido, extension, fecha} }
 let voz_cfg = LS.get("yt_voz", { activada:false, velocidad:100, tono:100, voiceURI:"" });
 let volumen_app = LS.get("yt_volumen_app", 70);
 let sonido_activado = LS.get("yt_sonido_activado", true);
-let usar_sonidos_descargados = LS.get("yt_usar_sonidos_descargados", false);
 
 function guardarConfiguracion(){
   LS.set("yt_mistral_key", MISTRAL_KEY);
@@ -711,116 +700,49 @@ function agregarClaveAdicional(servicio, clave, nombre){
 function guardarVoz(){ LS.set("yt_voz", voz_cfg); }
 
 /* -------------------------------- Sonidos -------------------------------- */
-/* Los sonidos de interfaz pueden usar los 18 archivos de audio ORIGINALES
-   del plugin, descargados una sola vez desde Google Drive y guardados en el
-   navegador con IndexedDB -- no en el repositorio ni en el hosting. El
-   usuario pulsa "Descargar todos los sonidos" en Sonidos → menú lateral, y
-   quedan disponibles en ese navegador/dispositivo para siempre (hasta que
-   borre datos del sitio). Si la casilla "Usar mis sonidos descargados" está
-   desmarcada, o un evento aún no se ha descargado, se usa un tono sintético
-   generado por Web Audio API como respaldo automático -- así nunca queda un
-   evento mudo. Las URLs de Google Drive deben apuntar a archivos compartidos
-   como "Cualquier persona con el enlace" (nivel Lector es suficiente),
-   convertidas al formato de descarga directa uc?export=download&id=... */
+/* Los sonidos de interfaz usan los 18 archivos de audio ORIGINALES del
+   plugin, servidos directamente desde este mismo repositorio (junto a
+   index.html), tanto en local como en GitHub Pages -- no se descargan de
+   ningún servicio externo ni se guardan en el navegador. Si por algún
+   motivo un archivo no carga (ruta incorrecta, red offline, etc.) se usa
+   automáticamente un tono sintético generado por Web Audio API como
+   respaldo, así nunca queda un evento mudo. */
 
 const TIPOS_SONIDO = [
-  { id:"enviar_mistral",      etiqueta:"Enviar (Mistral AI)",           driveId:"1FHXvEQsgBpmEs_YPuZ__mCRTse_4ih3L" },
-  { id:"enviar_morph",        etiqueta:"Enviar (Morph)",                driveId:"1qEVDXcOh6Fsx4_pPTt4mDkVf_QeFmimb" },
-  { id:"recibir",             etiqueta:"Recibir respuesta",             driveId:"13mg0mw8JXTmUEc6AmLWuovBqIoxXJAcn" },
-  { id:"copiar",              etiqueta:"Copiar texto",                  driveId:"1FfDL86A6waEg3kkRmss1G1acF8HCEYLW" },
-  { id:"dictado_inicio",      etiqueta:"Iniciar dictado por voz",       driveId:"1k-5HvHoWNyNpidFi6uomonAaGGk2fvnV" },
-  { id:"dictado_fin",         etiqueta:"Finalizar dictado por voz",     driveId:"15bUSSx-Ka1LLqj51ud0CBuKU6Y_IXQIs" },
-  { id:"dictado_error",       etiqueta:"Error de dictado",              driveId:"10_jHRXi2ZQPEyODA82C6lzYDBwjFBEtm" },
-  { id:"modelos_cargados",    etiqueta:"Modelos cargados",              driveId:"127vjhfQj-DOwk6Wib8MkG7wcOO7xYI5B" },
-  { id:"modelos_error",       etiqueta:"Error al cargar modelos",       driveId:"1vwKZTJNQvul0gGm0fvhgK3BWNJmpmxv3" },
-  { id:"escribiendo",         etiqueta:"Escribiendo (variante 1)",      driveId:"1OFF-LizOojYra4uLJQDfPn9IHkjKFGdb" },
-  { id:"escribiendo2",        etiqueta:"Escribiendo (variante 2)",      driveId:"1TeS4_DvuLtHosuBH5HvCcJDPofeF1XI0" },
-  { id:"escribiendo3",        etiqueta:"Escribiendo (variante 3)",      driveId:"1pUUo4jkZ57UnCCsEF2tUiqIKkU99QGNk" },
-  { id:"error_solicitud",     etiqueta:"Error de solicitud",            driveId:"1h2svuCsBLD3WSWEmseaml0emU-AzEbFz" },
-  { id:"abrir_barra_lateral", etiqueta:"Abrir barra lateral",           driveId:"1AgUgBIDanMJJvhkgShnb7-4z-T-pebSO" },
-  { id:"archivo_cargado",     etiqueta:"Archivo adjuntado",             driveId:"1Ma5RSvfWYx9UMn16wBAs7xe22aH645zN" },
-  { id:"boton",               etiqueta:"Pulsar botón",                  driveId:"1zhA5OVlHX-setiDPCBZz4JwS5BrloXkZ" },
-  { id:"eliminar_documento",  etiqueta:"Eliminar documento",            driveId:"1SuP6UDnHOWTZPCZHTD_1wJbqtJYT9fZG" },
-  { id:"cambio_ventana",      etiqueta:"Cambio de ventana/diálogo",     driveId:"1p5YAl7NUB3e3ydxKmWyutYjeDdYAcdgw" }
+  { id:"enviar_mistral",      etiqueta:"Enviar (Mistral AI)",           archivo:"Enviar con mistral.ogg" },
+  { id:"enviar_morph",        etiqueta:"Enviar (Morph)",                archivo:"Enviar mensaje.ogg" },
+  { id:"recibir",             etiqueta:"Recibir respuesta",             archivo:"Recibir mensaje.ogg" },
+  { id:"copiar",              etiqueta:"Copiar texto",                  archivo:"Copiar mensaje al portapapeles.ogg" },
+  { id:"dictado_inicio",      etiqueta:"Iniciar dictado por voz",       archivo:"Inicio de reconocimiento.wav" },
+  { id:"dictado_fin",         etiqueta:"Finalizar dictado por voz",     archivo:"Fin de reconocimiento.wav" },
+  { id:"dictado_error",       etiqueta:"Error de dictado",              archivo:"Error de reconocimiento.wav" },
+  { id:"modelos_cargados",    etiqueta:"Modelos cargados",              archivo:"Modelos cargados.ogg" },
+  { id:"modelos_error",       etiqueta:"Error al cargar modelos",       archivo:"Fallo de carga de modelos.mp3" },
+  { id:"escribiendo",         etiqueta:"Escribiendo (variante 1)",      archivo:"Escribiendo.mp3" },
+  { id:"escribiendo2",        etiqueta:"Escribiendo (variante 2)",      archivo:"Escribiendo2.mp3" },
+  { id:"escribiendo3",        etiqueta:"Escribiendo (variante 3)",      archivo:"Escribiendo3.mp3" },
+  { id:"error_solicitud",     etiqueta:"Error de solicitud",            archivo:"Error de solicitud.wav" },
+  { id:"abrir_barra_lateral", etiqueta:"Abrir barra lateral",           archivo:"Abrir barra lateral.mp3" },
+  { id:"archivo_cargado",     etiqueta:"Archivo adjuntado",             archivo:"Archivo cargado.mp3" },
+  { id:"boton",               etiqueta:"Pulsar botón",                  archivo:"Botón.mp3" },
+  { id:"eliminar_documento",  etiqueta:"Eliminar documento",            archivo:"Eliminar documento.mp3" },
+  { id:"cambio_ventana",      etiqueta:"Cambio de ventana/diálogo",     archivo:"cambio de ventana.wav" }
 ];
 
-function urlDescargaDirectaDrive(driveId){
-  return "https://drive.google.com/uc?export=download&id=" + driveId;
+/* Ruta relativa al archivo de sonido dentro del propio repositorio (mismo
+   directorio que index.html), codificando espacios y acentos para la URL. */
+function rutaSonido(nombreArchivo){
+  return "./" + encodeURIComponent(nombreArchivo);
 }
 
-const IDB_NOMBRE_BD = "yoni_tech_sonidos";
-const IDB_ALMACEN = "sonidos";
-let idbSonidosDB = null;
-
-function abrirBDSonidos(){
-  return new Promise((resolve, reject)=>{
-    if(idbSonidosDB){ resolve(idbSonidosDB); return; }
-    if(!window.indexedDB){ reject(new Error("IndexedDB no disponible en este navegador")); return; }
-    const peticion = indexedDB.open(IDB_NOMBRE_BD, 1);
-    peticion.onupgradeneeded = (e)=>{
-      const db = e.target.result;
-      if(!db.objectStoreNames.contains(IDB_ALMACEN)) db.createObjectStore(IDB_ALMACEN);
-    };
-    peticion.onsuccess = (e)=>{ idbSonidosDB = e.target.result; resolve(idbSonidosDB); };
-    peticion.onerror = ()=> reject(peticion.error);
-  });
-}
-
-async function guardarSonidoPropio(tipo, blob){
-  const db = await abrirBDSonidos();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_ALMACEN, "readwrite");
-    tx.objectStore(IDB_ALMACEN).put(blob, tipo);
-    tx.oncomplete = ()=> resolve(true);
-    tx.onerror = ()=> reject(tx.error);
-  });
-}
-
-async function borrarSonidoPropio(tipo){
-  const db = await abrirBDSonidos();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_ALMACEN, "readwrite");
-    tx.objectStore(IDB_ALMACEN).delete(tipo);
-    tx.oncomplete = ()=> resolve(true);
-    tx.onerror = ()=> reject(tx.error);
-  });
-}
-
-async function obtenerSonidoPropio(tipo){
-  const db = await abrirBDSonidos();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_ALMACEN, "readonly");
-    const peticion = tx.objectStore(IDB_ALMACEN).get(tipo);
-    peticion.onsuccess = ()=> resolve(peticion.result || null);
-    peticion.onerror = ()=> reject(peticion.error);
-  });
-}
-
-async function listarTiposConSonidoPropio(){
-  const db = await abrirBDSonidos();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_ALMACEN, "readonly");
-    const peticion = tx.objectStore(IDB_ALMACEN).getAllKeys();
-    peticion.onsuccess = ()=> resolve(peticion.result || []);
-    peticion.onerror = ()=> reject(peticion.error);
-  });
-}
-
-/* Cache en memoria de las URLs de reproducción (creadas desde los blobs de
-   IndexedDB) para no tener que releer la base de datos en cada reproducción.
-   Se invalida (borrando la entrada) cada vez que se sube o quita un sonido. */
-const cacheUrlSonidoPropio = {};
-async function obtenerUrlSonidoPropio(tipo){
-  if(cacheUrlSonidoPropio[tipo] !== undefined) return cacheUrlSonidoPropio[tipo];
-  try{
-    const blob = await obtenerSonidoPropio(tipo);
-    const url = blob ? URL.createObjectURL(blob) : null;
-    cacheUrlSonidoPropio[tipo] = url;
-    return url;
-  }catch(e){
-    cacheUrlSonidoPropio[tipo] = null;
-    return null;
+/* Cache en memoria de los elementos <audio> ya creados, para no reconstruir
+   el objeto Audio en cada reproducción del mismo sonido. */
+const cacheAudioSonido = {};
+function obtenerAudioSonido(tipo, archivo){
+  if(!cacheAudioSonido[tipo]){
+    cacheAudioSonido[tipo] = new Audio(rutaSonido(archivo));
   }
+  return cacheAudioSonido[tipo];
 }
 
 let audioCtx = null;
@@ -852,19 +774,18 @@ function reproducirSonidoGenerado(tipo){
     t += dur;
   });
 }
-async function reproducirSonido(tipo){
+function reproducirSonido(tipo){
   if(!sonido_activado) return;
-  if(usar_sonidos_descargados){
+  const tipoInfo = TIPOS_SONIDO.find(t=> t.id === tipo);
+  if(tipoInfo){
     try{
-      const url = await obtenerUrlSonidoPropio(tipo);
-      if(url){
-        const audio = new Audio(url);
-        audio.volume = Math.max(0, Math.min(1, volumen_app/100));
-        const p = audio.play();
-        if(p && typeof p.catch === "function") p.catch(()=> reproducirSonidoGenerado(tipo));
-        return;
-      }
-    }catch(e){ /* si algo falla leyendo IndexedDB, se usa el tono sintético */ }
+      const audio = obtenerAudioSonido(tipo, tipoInfo.archivo);
+      audio.currentTime = 0;
+      audio.volume = Math.max(0, Math.min(1, volumen_app/100));
+      const p = audio.play();
+      if(p && typeof p.catch === "function") p.catch(()=> reproducirSonidoGenerado(tipo));
+      return;
+    }catch(e){ /* si algo falla cargando el archivo local, se usa el tono sintético */ }
   }
   reproducirSonidoGenerado(tipo);
 }
@@ -1661,9 +1582,9 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   "En la parte de ARRIBA está el título 'Yoni Tech' y un botón con ícono de menú (☰) que abre la barra lateral. " +
   "La BARRA LATERAL (al abrirla) tiene estos botones: 'Gestionar APIs' (para poner o cambiar las claves de Mistral AI y Morph, " +
   "y también para agregar claves adicionales de respaldo que se activan automáticamente si la clave principal deja de funcionar), " +
-  "'Voz' (para configurar la lectura en voz alta de las respuestas), 'Sonidos' (para activar/desactivar los sonidos de " +
-  "interfaz, elegir entre tonos generados o los 18 sonidos originales del plugin descargados desde Google Drive con el botón " +
-  "'⬇️ Descargar todos los sonidos', y ajustar el volumen), 'Info del dispositivo', y 'Cerrar barra lateral'. " +
+  "'Voz' (para configurar la lectura en voz alta de las respuestas), 'Sonidos' (para activar/desactivar los 18 sonidos " +
+  "originales del plugin, que ya vienen incluidos en el sitio, y ajustar el volumen), 'Info del dispositivo', " +
+  "y 'Cerrar barra lateral'. " +
   "Arriba del todo también hay un SELECTOR DE SERVICIO (para elegir entre Mistral AI y Morph) " +
   "y un SELECTOR DE MODELO justo al lado, con un botón para recargar la lista de modelos disponibles. " +
   "En la parte de ABAJO está la CAJA DE TEXTO donde el usuario escribe su mensaje (Enter para enviar, Shift+Enter para salto de línea), " +
@@ -1678,11 +1599,9 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   "No tienes acceso a búsqueda en internet ni a información en tiempo real: si el usuario pide noticias de último momento " +
   "o datos que puedan haber cambiado después de tu entrenamiento, acláraselo honestamente en vez de inventar datos. " +
   "Si el usuario no sabe usar alguna función, explícasela en pasos simples y claros, mencionando el nombre exacto del botón o menú. " +
-  "Esta versión web puede sonar con los 18 sonidos ORIGINALES del plugin (no solo tonos genéricos): recomienda proactivamente " +
-  "al usuario, sobre todo si es de las primeras veces que usa la app o si pregunta por los sonidos, que vaya al menú lateral → " +
-  "'Sonidos' y presione '⬇️ Descargar todos los sonidos' para traerlos una sola vez desde Google Drive y guardarlos en su " +
-  "navegador (no en ningún servidor); luego debe marcar 'Usar mis sonidos descargados' y guardar. Si el usuario no escucha " +
-  "nada, revisa que 'Sonidos de la interfaz activados' esté marcado y sube el volumen ahí mismo.";
+  "Esta versión web suena con los 18 sonidos ORIGINALES del plugin (no tonos genéricos) desde el primer momento, sin " +
+  "necesidad de descargar nada. Si el usuario no escucha nada, dile que vaya al menú lateral → 'Sonidos' y revise que " +
+  "'Sonidos de la interfaz activados' esté marcado y que el volumen esté subido ahí mismo.";
 const TEXTO_SYSTEM_PROMPT_ARCHIVOS =
   " Cuando el usuario te pida programar o generar contenido largo destinado a ser un ARCHIVO " +
   "(por ejemplo un script, una página HTML, un documento de texto, etc.), y quiera descargarlo, " +
@@ -2483,89 +2402,26 @@ function renderListaClaves(){
   }
 }
 
-/* --------------------------------- Mis sonidos (IndexedDB) -------------------- */
-/* Descarga un sonido individual desde Google Drive y lo guarda en IndexedDB.
-   Si Google bloquea la descarga directa (pantalla de advertencia de virus
-   para archivos grandes, o el archivo no es realmente público), el fetch
-   puede traer HTML en vez de audio -- se detecta por el content-type y se
-   informa el error en vez de guardar basura como si fuera un sonido. */
-async function descargarUnSonido(tipoInfo){
-  if(!tipoInfo.driveId) throw new Error("Sin enlace de Google Drive configurado para este sonido");
-  const res = await fetch(urlDescargaDirectaDrive(tipoInfo.driveId));
-  if(!res.ok) throw new Error("HTTP "+res.status);
-  const tipoContenido = res.headers.get("content-type") || "";
-  if(/text\/html/i.test(tipoContenido)){
-    throw new Error("Google Drive devolvió una página en vez del audio (revisa que el archivo sea público: \"Cualquier persona con el enlace\")");
-  }
-  const blob = await res.blob();
-  if(blob.size === 0) throw new Error("El archivo descargado está vacío");
-  await guardarSonidoPropio(tipoInfo.id, blob);
-  delete cacheUrlSonidoPropio[tipoInfo.id];
-}
-
-async function descargarTodosLosSonidos(){
-  mostrarToast("Descargando sonidos desde Google Drive...");
-  let exitos = 0, fallos = 0;
-  for(const t of TIPOS_SONIDO){
-    try{
-      await descargarUnSonido(t);
-      exitos++;
-    }catch(e){
-      fallos++;
-    }
-    renderListaMisSonidos();
-  }
-  if(fallos === 0){
-    mostrarToast(`Se descargaron los ${exitos} sonidos correctamente ✅`);
-  } else {
-    mostrarToast(`${exitos} sonidos descargados, ${fallos} fallaron (revisa cuáles en la lista)`);
-  }
-}
-
-async function renderListaMisSonidos(){
+/* --------------------------------- Mis sonidos (lista de prueba) -------------------- */
+/* Los 18 sonidos ya están disponibles siempre (vienen en el propio
+   repositorio junto a index.html), así que aquí solo se ofrece un botón
+   "▶️ Probar" por cada uno para escucharlos sin necesidad de descargar
+   ni gestionar nada. */
+function renderListaMisSonidos(){
   const cont = $("#lista-mis-sonidos");
-  cont.innerHTML = "<p style='opacity:0.7'>Cargando...</p>";
-  let tiposConSonido = [];
-  try{ tiposConSonido = await listarTiposConSonidoPropio(); }catch(e){ /* IndexedDB no disponible */ }
   cont.innerHTML = "";
   TIPOS_SONIDO.forEach(t=>{
-    const tieneSonido = tiposConSonido.includes(t.id);
     const item = document.createElement("div");
     item.className = "item-mi-sonido";
     item.innerHTML = `
       <div class="info">
         <span>${escaparHTML(t.etiqueta)}</span>
-        <span class="estado-sonido">${tieneSonido ? "🔊 Descargado" : "⬇️ Aún no descargado (usando tono generado)"}</span>
+        <span class="estado-sonido">🔊 Sonido original del plugin</span>
       </div>
       <div class="acciones">
-        <button class="mini-btn" type="button" data-probar>▶️</button>
-        <button class="mini-btn" style="background:#0288D1" type="button" data-descargar>⬇️</button>
-        ${tieneSonido ? `<button class="mini-btn rojo" type="button" data-quitar>Quitar</button>` : ""}
+        <button class="mini-btn" type="button" data-probar>▶️ Probar</button>
       </div>`;
     item.querySelector("[data-probar]").addEventListener("click", ()=> reproducirSonido(t.id));
-    item.querySelector("[data-descargar]").addEventListener("click", async ()=>{
-      mostrarToast(`Descargando "${t.etiqueta}"...`);
-      try{
-        await descargarUnSonido(t);
-        mostrarToast(`"${t.etiqueta}" descargado ✅`);
-        renderListaMisSonidos();
-      }catch(err){
-        mostrarToast(`No se pudo descargar "${t.etiqueta}": ${err.message}`);
-      }
-    });
-    const btnQuitar = item.querySelector("[data-quitar]");
-    if(btnQuitar){
-      btnQuitar.addEventListener("click", async ()=>{
-        try{
-          await borrarSonidoPropio(t.id);
-          delete cacheUrlSonidoPropio[t.id];
-          mostrarToast(`Sonido eliminado de "${t.etiqueta}"`);
-          renderListaMisSonidos();
-        }catch(err){
-          mostrarToast("No se pudo eliminar el sonido");
-        }
-      });
-    }
     cont.appendChild(item);
   });
 }
@@ -2712,7 +2568,6 @@ function init(){
       }
       else if(acc==="configurar-sonidos"){
         $("#chk-sonido-activado").checked = sonido_activado;
-        $("#chk-usar-sonidos-descargados").checked = usar_sonidos_descargados;
         $("#rango-volumen-app").value = volumen_app; $("#lbl-volumen-app").textContent = volumen_app;
         renderListaMisSonidos();
         abrirDialogo("ov-sonidos");
@@ -2831,17 +2686,11 @@ function init(){
   // sonidos
   $("#btn-guardar-sonidos").addEventListener("click", ()=>{
     sonido_activado = $("#chk-sonido-activado").checked;
-    usar_sonidos_descargados = $("#chk-usar-sonidos-descargados").checked;
     volumen_app = parseInt($("#rango-volumen-app").value,10);
     LS.set("yt_sonido_activado", sonido_activado);
-    LS.set("yt_usar_sonidos_descargados", usar_sonidos_descargados);
     LS.set("yt_volumen_app", volumen_app);
     reproducirSonido("boton");
     cerrarDialogo("ov-sonidos"); mostrarToast("Sonidos configurados");
-  });
-  $("#btn-descargar-todos-sonidos").addEventListener("click", ()=>{
-    reproducirSonido("boton");
-    descargarTodosLosSonidos();
   });
 
   // comandos personalizados
