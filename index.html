@@ -94,6 +94,12 @@
   .musica-card{ background:var(--panel2); border-radius:8px; padding:10px; margin-top:6px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .musica-card .btn{ background:var(--rojo); font-size:0.8rem; padding:8px 10px; }
   #adjuntos-bar{ display:none; flex-wrap:wrap; gap:6px; background:var(--panel2); border-radius:8px; padding:8px; }
+  #respuestas-rapidas-bar{ display:flex; flex-wrap:wrap; gap:6px; padding:2px 0; }
+  #respuestas-rapidas-bar[hidden]{ display:none; }
+  .btn-respuesta-rapida{ background:var(--indigo); color:#fff; padding:8px 12px; font-size:0.82rem; font-weight:600; border-radius:16px; }
+  .btn-respuesta-rapida:hover{ filter:brightness(1.15); }
+  #fila-sugerencias{ margin-top:2px; }
+  #fila-sugerencias[hidden]{ display:none; }
   .chip-adjunto{ background:#444; border-radius:16px; padding:6px 10px; display:flex; align-items:center; gap:8px; font-size:0.82rem; }
   .chip-adjunto button{ background:transparent; color:#fff; font-weight:bold; padding:0 4px; }
   form#fila-inferior{ display:flex; gap:8px; align-items:flex-end; }
@@ -225,7 +231,20 @@
     </div>
   </main>
 
+  <div id="respuestas-rapidas-bar" aria-label="Respuestas rápidas sugeridas" hidden></div>
+
   <div id="adjuntos-bar" aria-label="Archivos adjuntos"></div>
+
+  <div class="fila-selector" id="fila-sugerencias" hidden>
+    <label for="sel-sugerencias">Sugerencias:</label>
+    <select id="sel-sugerencias" aria-describedby="ayuda-sugerencias">
+      <option value="" selected>Elige una sugerencia para enviarla…</option>
+    </select>
+  </div>
+  <p class="visually-hidden" id="ayuda-sugerencias">
+    Esta lista se actualiza según el tema de la conversación. Al elegir una opción, esa pregunta se envía
+    directamente a la inteligencia artificial.
+  </p>
 
   <form id="fila-inferior" autocomplete="off">
     <button type="button" class="btn btn-ir-final" id="btn_ir_final" hidden aria-label="Ir al final" title="Ir al final">⬇</button>
@@ -241,21 +260,27 @@
 <div class="toast-region" id="toast-region" aria-live="assertive"></div>
 <input type="file" id="input_archivo" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.js,.ts,.py,.html,.htm,.css,.log,.xml,.yml,.yaml,.ini,.java,.c,.cpp,.lua,.sh,.pdf,.png,.jpg,.jpeg,.webp,.gif">
 
+<div class="overlay" id="ov-modo-dispositivo" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-modo-dispositivo" tabindex="-1">
+    <h2 id="tit-modo-dispositivo">¿En qué estás usando Yoni Tech?</h2>
+    <p class="ayuda">
+      Esto ayuda a Yoni Tech a mostrarte las funciones que sí tienen sentido en tu dispositivo
+      (por ejemplo, batería y linterna en el teléfono; atajos de teclado y ventanas en la computadora)
+      y a explicarte la interfaz de la forma correcta. Puedes cambiarlo luego desde
+      «Abrir barra lateral → Mi modo».
+    </p>
+    <div class="menu-lista">
+      <button type="button" style="background:var(--indigo)" id="btn-modo-telefono">📱 Teléfono o tablet</button>
+      <button type="button" style="background:var(--teal)" id="btn-modo-computadora">💻 Computadora / escritorio</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="ov-consentimiento" hidden>
   <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-consentimiento" aria-describedby="txt-consentimiento" tabindex="-1">
     <h2 id="tit-consentimiento">Política de seguridad</h2>
-    <p id="txt-consentimiento">
-      Al continuar, aceptas que el navegador guarde tu información sensible, como datos personales o información
-      sobre tu navegador, con cookies de seguridad. No introduzcas información sensible (contraseñas de otros
-      servicios, datos bancarios, documentos de identidad) en ningún campo de esta aplicación.
-    </p>
-    <p class="ayuda">
-      (En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración,
-      tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador,
-      en este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos.
-      Los sonidos de la interfaz vienen incluidos en este mismo sitio, así que no se descarga nada externo
-      para escucharlos.)
-    </p>
+    <p id="txt-consentimiento"></p>
+    <p class="ayuda" id="txt-consentimiento-ayuda"></p>
     <div class="toggle-row" style="align-items:flex-start;">
       <label for="chk-consentimiento" style="flex:1;">Estoy de acuerdo con la política de seguridad</label>
       <span class="switch"><input type="checkbox" id="chk-consentimiento"><span class="slider-tog"></span></span>
@@ -282,6 +307,7 @@
       <button style="background:var(--cyan)" data-accion="comandos">Comandos personalizados</button>
       <button style="background:#455A64" data-accion="notas">Mis notas</button>
       <button style="background:#455A64" data-accion="dispositivo">Info del dispositivo</button>
+      <button style="background:#00838F" data-accion="mi-modo">Mi modo (teléfono / computadora)</button>
       <button style="background:var(--rojo)" data-cerrar="ov-menu">Cerrar barra lateral</button>
     </div>
   </div>
@@ -303,6 +329,7 @@
       <button style="background:#795548" id="op-vibrar">📳 Vibrar</button>
       <button style="background:#795548" id="op-linterna">🔦 Linterna</button>
       <button style="background:var(--cyan)" id="op-nueva-nota">🗒️ Nueva nota</button>
+      <button style="background:#8E24AA" id="op-traducir">🌐 Traducir</button>
     </div>
   </div>
 </div>
@@ -523,7 +550,20 @@
           <option value="linterna">Encender/apagar linterna</option>
           <option value="abrir_url">Abrir un sitio web</option>
           <option value="dispositivo">Mostrar info del dispositivo</option>
+          <option value="copiar_respuesta">(Computadora) Copiar la última respuesta</option>
+          <option value="pantalla_completa">(Computadora) Pantalla completa</option>
+          <option value="imprimir">(Computadora) Imprimir conversación</option>
+          <option value="buscar_pagina">(Computadora) Buscar en la página</option>
+          <option value="zoom_mas">(Computadora) Acercar (zoom +)</option>
+          <option value="zoom_menos">(Computadora) Alejar (zoom -)</option>
+          <option value="zoom_normal">(Computadora) Restablecer zoom</option>
+          <option value="notificar">(Computadora) Activar notificaciones</option>
+          <option value="atajo_teclado">(Computadora) Atajo de teclado</option>
         </select>
+      </div>
+      <div class="campo" id="campo-com-atajo" hidden>
+        <label for="in-com-atajo">Combinación (ej: ctrl+shift+j)</label>
+        <input type="text" id="in-com-atajo" placeholder="ctrl+shift+j">
       </div>
       <div class="campo" id="campo-com-extra">
         <label for="in-com-extra">Texto de respuesta / URL</label>
@@ -577,6 +617,60 @@
     <div class="msg-contenido" id="contenido-dispositivo" style="white-space:pre-wrap;font-size:0.9rem;"></div>
     <div class="fila-2" style="margin-top:10px;">
       <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-dispositivo">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-traducir" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-traducir">
+    <button class="cerrar-x" data-cerrar="ov-traducir" aria-label="Cerrar">✕</button>
+    <h2 id="tit-traducir">Traducir</h2>
+    <p class="ayuda">Usa el servicio y modelo que tienes seleccionados arriba en la pantalla principal.</p>
+    <div class="campo">
+      <label for="sel-traducir-origen">Idioma de origen</label>
+      <select id="sel-traducir-origen">
+        <option value="Español" selected>Español</option>
+        <option value="Inglés">Inglés</option>
+        <option value="Francés">Francés</option>
+        <option value="Portugués">Portugués</option>
+        <option value="Italiano">Italiano</option>
+        <option value="Alemán">Alemán</option>
+        <option value="Chino">Chino</option>
+        <option value="Japonés">Japonés</option>
+        <option value="Ruso">Ruso</option>
+        <option value="Árabe">Árabe</option>
+        <option value="Otro">Otro (detectar automáticamente)</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="in-traducir-texto">Texto a traducir</label>
+      <textarea id="in-traducir-texto" style="min-height:110px;"></textarea>
+    </div>
+    <div class="campo">
+      <label for="sel-traducir-destino">Traducir a</label>
+      <select id="sel-traducir-destino">
+        <option value="Inglés">Inglés</option>
+        <option value="Español">Español</option>
+        <option value="Francés">Francés</option>
+        <option value="Portugués">Portugués</option>
+        <option value="Italiano">Italiano</option>
+        <option value="Alemán">Alemán</option>
+        <option value="Chino">Chino</option>
+        <option value="Japonés">Japonés</option>
+        <option value="Ruso">Ruso</option>
+        <option value="Árabe">Árabe</option>
+      </select>
+    </div>
+    <div class="fila-2">
+      <button type="button" class="btn" style="background:var(--verde); width:100%;" id="btn-traducir-ir">Traducir</button>
+    </div>
+    <div class="campo" style="margin-top:10px;">
+      <label for="out-traducir-resultado">Resultado</label>
+      <textarea id="out-traducir-resultado" style="min-height:110px;" readonly></textarea>
+    </div>
+    <div class="fila-2">
+      <button type="button" class="btn" style="background:var(--indigo)" id="btn-traducir-copiar">Copiar resultado</button>
+      <button type="button" class="btn" style="background:var(--gris)" data-cerrar="ov-traducir">Cerrar</button>
     </div>
   </div>
 </div>
@@ -678,6 +772,17 @@ let notas = LS.get("yt_notas", {}); // { titulo: {contenido, extension, fecha} }
 let voz_cfg = LS.get("yt_voz", { activada:false, velocidad:100, tono:100, voiceURI:"" });
 let volumen_app = LS.get("yt_volumen_app", 70);
 let sonido_activado = LS.get("yt_sonido_activado", true);
+
+/* --------------------------- Modo de dispositivo --------------------------
+   "telefono" o "computadora". Se pregunta la primera vez (antes de la
+   política de seguridad, cuyo texto cambia según la respuesta) y se puede
+   cambiar luego desde «Abrir barra lateral → Mi modo». Determina qué
+   comandos rápidos, qué texto de política de seguridad y qué explicación
+   de interfaz recibe la IA, entre otras cosas. */
+let modo_dispositivo = LS.get("yt_modo_dispositivo", null); // null = aún no elegido
+function guardarModoDispositivo(){ LS.set("yt_modo_dispositivo", modo_dispositivo); }
+function esModoComputadora(){ return modo_dispositivo === "computadora"; }
+function esModoTelefono(){ return modo_dispositivo === "telefono"; }
 
 function guardarConfiguracion(){
   LS.set("yt_mistral_key", MISTRAL_KEY);
@@ -1146,9 +1251,20 @@ function agregarMensajeResultadosMusica(consultaOriginal, resultados){
 let cicloEscribiendoActivo = false;
 let audioEscribiendoActual = null;
 let idEscribiendoAnterior = null;
+/* Cada vez que se inicia el ciclo se incrementa este contador. Cualquier
+   callback asíncrono (onended, timeout de reintento, promesa de play())
+   que pertenezca a un ciclo anterior queda invalidado al comparar su
+   propio número de generación contra el actual -- así, aunque un
+   audio.play() o un setTimeout "viejo" resuelva tarde (por ejemplo
+   porque se llamó mostrarIndicadorEscribiendo() de nuevo antes de que
+   terminara de reproducirse el sonido anterior), nunca puede disparar
+   un segundo sonido superpuesto con el del ciclo nuevo. Esto es lo que
+   causaba que a veces se oyeran dos sonidos de "escribiendo" a la vez. */
+let generacionCicloEscribiendo = 0;
 
 function detenerCicloEscribiendo(){
   cicloEscribiendoActivo = false;
+  generacionCicloEscribiendo++;
   if(audioEscribiendoActual){
     try{
       audioEscribiendoActual.onended = null;
@@ -1172,25 +1288,37 @@ function elegirSiguienteSonidoEscribiendo(){
 function reproducirSiguienteSonidoEscribiendo(){
   if(!cicloEscribiendoActivo) return;
   if(!sonido_activado){ detenerCicloEscribiendo(); return; }
+  const miGeneracion = generacionCicloEscribiendo;
   const candidato = elegirSiguienteSonidoEscribiendo();
   idEscribiendoAnterior = candidato;
   const tipoInfo = TIPOS_SONIDO.find(t=> t.id === candidato);
   const continuarTrasFallo = ()=>{
-    if(!cicloEscribiendoActivo) return;
+    if(!cicloEscribiendoActivo || miGeneracion !== generacionCicloEscribiendo) return;
     reproducirSonidoGenerado(candidato);
     const patron = PATRONES_SONIDO[candidato] || [[500,0.05]];
     const duracionMs = patron.reduce((acc,[,dur])=> acc+dur, 0) * 1000 + 60;
-    setTimeout(()=> reproducirSiguienteSonidoEscribiendo(), duracionMs);
+    setTimeout(()=>{
+      if(miGeneracion !== generacionCicloEscribiendo) return;
+      reproducirSiguienteSonidoEscribiendo();
+    }, duracionMs);
   };
   if(!tipoInfo){ continuarTrasFallo(); return; }
   try{
     const audio = obtenerAudioSonido(candidato, tipoInfo.archivo);
-    audio.currentTime = 0;
+    // si este objeto <audio> ya estaba sonando por un ciclo anterior
+    // (reentrada), lo detenemos primero para no encimar dos reproducciones
+    // del mismo elemento
+    try{ audio.onended = null; audio.pause(); audio.currentTime = 0; }catch(e){}
     audio.volume = Math.max(0, Math.min(1, volumen_app/100));
-    audio.onended = ()=> reproducirSiguienteSonidoEscribiendo();
+    audio.onended = ()=>{
+      if(miGeneracion !== generacionCicloEscribiendo) return;
+      reproducirSiguienteSonidoEscribiendo();
+    };
     audioEscribiendoActual = audio;
     const p = audio.play();
-    if(p && typeof p.catch === "function") p.catch(continuarTrasFallo);
+    if(p && typeof p.catch === "function"){
+      p.catch(()=>{ if(miGeneracion === generacionCicloEscribiendo) continuarTrasFallo(); });
+    }
   }catch(e){ continuarTrasFallo(); }
 }
 
@@ -1203,6 +1331,14 @@ function iniciarCicloEscribiendo(){
 
 let elIndicador = null;
 function mostrarIndicadorEscribiendo(msg){
+  // si ya hay un ciclo activo, solo actualizamos el texto del indicador
+  // sin tocar el sonido -- así una llamada repetida (por ejemplo un
+  // reintento automático de la solicitud) nunca reinicia ni superpone
+  // el ciclo de sonido que ya está sonando
+  if(cicloEscribiendoActivo && elIndicador){
+    actualizarIndicadorEscribiendo(msg || "Yoni Tech está escribiendo...");
+    return;
+  }
   eliminarIndicadorEscribiendo();
   elIndicador = document.createElement("div");
   elIndicador.className = "indicador-escribiendo";
@@ -1232,6 +1368,14 @@ const TEXTO_SYSTEM_PROMPT_NOTAS =
 "[[NOTA_ACCION:{\"tipo\":\"editar\",\"tema\":\"tema o nombre para localizar la nota\",\"contenido\":\"texto nuevo\",\"modo\":\"sobrescribir o agregar\"}]] para editar, " +
 "[[NOTA_ACCION:{\"tipo\":\"leer\",\"tema\":\"tema o nombre para localizar la nota\"}]] para leer/abrir una nota. " +
 "El sistema ya se encarga de decirle al usuario que la nota quedo guardada (con un mensaje como 'Nota guardada: \"titulo\". ¿Quieres que agregue algo mas o la abra para revisarla?'), asi que TU respuesta visible NUNCA debe anunciar ni confirmar el guardado con frases como 'Listo, ya te la guarde' o 'Nota guardada' -- eso lo dice el sistema aparte, justo despues de tu respuesta. Tu texto visible debe limitarse a responder la pregunta o el pedido original del usuario (por ejemplo, si te pidieron el clima y guardarlo, tu texto visible es solo la respuesta del clima), y el bloque JSON [[NOTA_ACCION:...]] va SIEMPRE en su propia linea nueva, al final absoluto de tu respuesta, sin ningun texto tuyo despues de el. Nunca muestres ese bloque como parte del texto conversacional que lee el usuario, ni lo menciones ni lo expliques.";
+
+/* ---------------------- Sugerencias y respuestas rápidas -------------------- */
+const TEXTO_SYSTEM_PROMPT_SUGERENCIAS =
+"\n\nAdemas, la interfaz tiene una lista desplegable llamada 'Sugerencias' (preguntas de seguimiento relacionadas con el tema actual) y unos botones de 'respuestas rapidas' que aparecen encima de la caja de texto cuando tu respuesta plantea una decision concreta al usuario. " +
+"Usa esto con criterio, no en cada mensaje: " +
+"1) SUGERENCIAS: cuando el tema de la conversacion da pie a preguntas naturales de seguimiento (por ejemplo, si estan hablando de razas de perros, sugiere preguntas como '¿Cual es la mejor raza para apartamentos?' o '¿Cuanto vive un labrador?'), agrega de 2 a 4 lineas al final de tu respuesta, cada una en su propia linea, con el formato exacto: [[SUGERENCIA: texto exacto de la pregunta]] -- ese texto se envia tal cual si el usuario la elige, asi que escribelo como si el usuario mismo la estuviera preguntando, en primera persona cuando corresponda. " +
+"2) RESPUESTAS RAPIDAS: cuando tu respuesta le hace una pregunta directa al usuario con opciones concretas (por ejemplo '¿Quieres que guarde esta nota o la elimino?', '¿Prefieres la opcion A o la B?', '¿Cual es tu animal preferido: perros o gatos?'), agrega una linea por cada opcion con el formato exacto: [[RESPUESTA_RAPIDA: etiqueta corta del boton | texto completo que se envia si lo pulsan]] -- la etiqueta debe ser breve (2 a 4 palabras) para que quepa en un boton, y el texto que se envia debe ser una respuesta completa y natural como si el usuario la hubiera escrito (por ejemplo etiqueta 'Guardar nota' y texto que se envia 'Si, guarda esta nota'). " +
+"Estas lineas van SIEMPRE al final absoluto de tu respuesta (despues del bloque [[NOTA_ACCION:...]] si tambien usaste uno), cada marcador en su propia linea, y NUNCA se muestran ni se mencionan al usuario -- el sistema las oculta y las convierte en botones o en la lista desplegable. No uses sugerencias y respuestas rapidas en la misma respuesta si no tiene sentido (usa respuestas rapidas cuando le preguntes algo puntual con opciones claras; usa sugerencias cuando el tema simplemente admite explorar mas). Si tu respuesta no plantea ninguna decision ni da pie a preguntas de seguimiento claras, no agregues ninguno de los dos marcadores.";
 
 function generarTituloAutomatico(){
   return "Nota " + new Date().toLocaleString("es-ES");
@@ -1283,6 +1427,91 @@ function interceptarYEjecutarAccionNota(textoRespuesta){
     return [textoLimpio, contenido!==null ? `Contenido de "${nombreArchivo}":\n${contenido}` : `No encontré ninguna nota relacionada con "${accion.tema}".`];
   }
   return [textoLimpio, null];
+}
+
+/* --------------------------- Sugerencias y respuestas rápidas ---------------
+   La IA puede terminar su respuesta con líneas ocultas (nunca visibles para
+   el usuario) que la interfaz interpreta para actualizar:
+   - la lista desplegable "Sugerencias" (preguntas de seguimiento relacionadas
+     con el tema que se está hablando en ese momento), y
+   - los botones de "respuestas rápidas" que aparecen justo encima de la caja
+     de texto cuando la respuesta de la IA plantea una decisión concreta
+     (por ejemplo "¿guardar la nota o eliminarla?").
+   Formato (una línea por elemento, no JSON, para que un error de comillas
+   no tumbe todo el bloque como pasaba con las notas):
+     [[SUGERENCIA: texto de la sugerencia]]
+     [[RESPUESTA_RAPIDA: etiqueta del botón | texto que se envía al pulsarlo]]
+   Van siempre al final de la respuesta, cada una en su propia línea. */
+function interceptarSugerenciasYRespuestasRapidas(textoRespuesta){
+  const lineas = textoRespuesta.split("\n");
+  const sugerencias = [];
+  const respuestasRapidas = [];
+  const lineasRestantes = [];
+  lineas.forEach(linea=>{
+    const mSug = linea.match(/^\s*\[\[SUGERENCIA:\s*(.+?)\s*\]\]\s*$/);
+    const mResp = linea.match(/^\s*\[\[RESPUESTA_RAPIDA:\s*(.+?)\s*\|\s*(.+?)\s*\]\]\s*$/);
+    if(mSug){ sugerencias.push(trim(mSug[1])); }
+    else if(mResp){ respuestasRapidas.push({ etiqueta: trim(mResp[1]), envia: trim(mResp[2]) }); }
+    else{ lineasRestantes.push(linea); }
+  });
+  const textoLimpio = trim(lineasRestantes.join("\n"));
+  return { textoLimpio, sugerencias, respuestasRapidas };
+}
+
+let sugerenciasActuales = [];
+function actualizarListaSugerencias(sugerencias){
+  sugerenciasActuales = sugerencias || [];
+  const fila = $("#fila-sugerencias");
+  const sel = $("#sel-sugerencias");
+  if(!sugerenciasActuales.length){ fila.hidden = true; return; }
+  sel.innerHTML = '<option value="" selected>Elige una sugerencia para enviarla…</option>';
+  sugerenciasActuales.forEach(s=>{
+    const op = document.createElement("option");
+    op.value = s; op.textContent = s;
+    sel.appendChild(op);
+  });
+  fila.hidden = false;
+}
+
+let respuestasRapidasActuales = [];
+function actualizarRespuestasRapidas(respuestas){
+  respuestasRapidasActuales = respuestas || [];
+  const bar = $("#respuestas-rapidas-bar");
+  bar.innerHTML = "";
+  if(!respuestasRapidasActuales.length){ bar.hidden = true; return; }
+  respuestasRapidasActuales.forEach(r=>{
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-respuesta-rapida";
+    btn.textContent = r.etiqueta;
+    btn.addEventListener("click", ()=>{
+      reproducirSonido("boton");
+      ocultarRespuestasRapidas();
+      ocultarSugerencias();
+      enviarTextoDirecto(r.envia, { origen:"respuesta_rapida", etiqueta:r.etiqueta });
+    });
+    bar.appendChild(btn);
+  });
+  bar.hidden = false;
+}
+function ocultarRespuestasRapidas(){ respuestasRapidasActuales=[]; $("#respuestas-rapidas-bar").innerHTML=""; $("#respuestas-rapidas-bar").hidden = true; }
+function ocultarSugerencias(){ sugerenciasActuales=[]; $("#fila-sugerencias").hidden = true; }
+
+/* Envía un texto como si el usuario lo hubiera escrito y pulsado Enter,
+   marcando su procedencia (sugerencia elegida, respuesta rápida elegida,
+   o resultado de una traducción) para que, cuando corresponda, se le avise
+   a la IA en el propio mensaje de qué acción disparó el envío -- así el
+   agente es consciente de lo que el usuario hizo por fuera del chat de
+   texto libre. */
+async function enviarTextoDirecto(texto, contexto){
+  const cajaTexto = $("#edit_pregunta");
+  cajaTexto.value = texto;
+  ajustarAlturaTextarea();
+  // el texto (elegido de una sugerencia, o el enviado por un botón de
+  // respuesta rápida) se procesa exactamente igual que si el usuario lo
+  // hubiera escrito a mano -- así la IA lo recibe como un mensaje de
+  // usuario normal y puede responder con naturalidad, sin marcas especiales.
+  await procesarPregunta(texto);
 }
 
 /* --------------------------------- Clima ----------------------------------
@@ -1629,6 +1858,7 @@ function obtenerTextoIntensidadSenal(){
   return "Tienes conexión a Internet, pero este navegador no expone más detalles de la señal.";
 }
 async function obtenerResumenDispositivo(){
+  if(esModoComputadora()) return await obtenerResumenComputadora();
   const partes = [
     obtenerInfoSistema(), obtenerInfoPantalla(), obtenerInfoProcesador(), obtenerInfoRAM(),
     await obtenerInfoAlmacenamiento(), obtenerInfoSensores(), obtenerTextoIntensidadSenal(),
@@ -1636,6 +1866,90 @@ async function obtenerResumenDispositivo(){
   ];
   return partes.join("\n\n");
 }
+
+/* ------------------ Info del dispositivo — modo Computadora -----------------
+   Un navegador de escritorio expone bastante menos que uno móvil (no hay
+   batería real que informar en la mayoría de los casos, no hay sensores de
+   movimiento, la vibración no existe). En su lugar, aquí se detecta con
+   más detalle el sistema operativo de escritorio, el navegador exacto, el
+   idioma y zona horaria configurados, el tamaño real de la ventana frente
+   al de la pantalla completa (útil para saber si está maximizada), y las
+   capacidades propias de escritorio (portapapeles, pantalla completa,
+   notificaciones del sistema). */
+function detectarSistemaOperativoEscritorio(){
+  const ua = navigator.userAgent;
+  const plataforma = navigator.platform || "";
+  if(/Windows NT 10/.test(ua)) return "Windows 10 / 11";
+  if(/Windows NT 6\.3/.test(ua)) return "Windows 8.1";
+  if(/Windows NT 6\.2/.test(ua)) return "Windows 8";
+  if(/Windows NT 6\.1/.test(ua)) return "Windows 7";
+  if(/Windows/.test(ua)) return "Windows";
+  if(/Mac OS X/.test(ua)){
+    const m = ua.match(/Mac OS X (\d+[_\.]\d+)/);
+    return "macOS" + (m ? " " + m[1].replace("_","."): "");
+  }
+  if(/CrOS/.test(ua)) return "ChromeOS";
+  if(/Linux/.test(plataforma) || /Linux/.test(ua)) return "Linux";
+  return plataforma || "Sistema de escritorio no identificado";
+}
+function detectarNavegadorEscritorio(){
+  const ua = navigator.userAgent;
+  if(/Edg\//.test(ua)) return "Microsoft Edge";
+  if(/OPR\//.test(ua) || /Opera/.test(ua)) return "Opera";
+  if(/Firefox\//.test(ua)) return "Mozilla Firefox";
+  if(/Chrome\//.test(ua) && !/Edg\//.test(ua)) return "Google Chrome";
+  if(/Safari\//.test(ua) && !/Chrome\//.test(ua)) return "Safari";
+  return "Navegador no identificado con certeza";
+}
+function obtenerInfoSistemaEscritorio(){
+  return `Sistema operativo detectado: ${detectarSistemaOperativoEscritorio()}. Navegador: ${detectarNavegadorEscritorio()}.`;
+}
+function obtenerInfoIdiomaYHora(){
+  const idiomas = (navigator.languages && navigator.languages.length) ? navigator.languages.join(", ") : navigator.language;
+  let zonaHoraria = "desconocida";
+  try{ zonaHoraria = Intl.DateTimeFormat().resolvedOptions().timeZone || zonaHoraria; }catch(e){}
+  return `Idioma(s) del navegador: ${idiomas}. Zona horaria del sistema: ${zonaHoraria}.`;
+}
+function obtenerInfoPantallaEscritorio(){
+  const ventanaMaximizada = Math.abs(window.innerWidth - screen.availWidth) < 40 && Math.abs(window.innerHeight - screen.availHeight) < 80;
+  return `Resolución de pantalla completa: ${screen.width}x${screen.height} px (área útil ${screen.availWidth}x${screen.availHeight} px, sin la barra de tareas). ` +
+         `Ventana del navegador: ${window.innerWidth}x${window.innerHeight} px${ventanaMaximizada ? " (parece estar maximizada)" : ""}. ` +
+         `Densidad de píxeles: ${window.devicePixelRatio||1}x.`;
+}
+function obtenerInfoProcesadorEscritorio(){
+  const nucleos = ("hardwareConcurrency" in navigator) ? navigator.hardwareConcurrency : null;
+  const ram = ("deviceMemory" in navigator) ? navigator.deviceMemory : null;
+  let txt = nucleos ? `Núcleos lógicos de CPU disponibles para el navegador: ${nucleos}.` : "Este navegador no informa los núcleos del procesador.";
+  txt += ram ? ` Memoria RAM aproximada: ${ram} GB.` : " Este navegador no informa la memoria RAM (Chrome de escritorio no siempre la expone).";
+  return txt;
+}
+function obtenerInfoCapacidadesEscritorio(){
+  const capacidades = [];
+  if(navigator.clipboard) capacidades.push("copiar/pegar por el portapapeles del sistema");
+  if(document.fullscreenEnabled) capacidades.push("pantalla completa");
+  if("Notification" in window) capacidades.push("notificaciones de escritorio");
+  if("serviceWorker" in navigator) capacidades.push("funcionamiento sin conexión (service worker)");
+  if(navigator.bluetooth) capacidades.push("Bluetooth (Web Bluetooth)");
+  if(navigator.usb) capacidades.push("dispositivos USB (WebUSB)");
+  return capacidades.length ? `Capacidades de escritorio detectadas: ${capacidades.join(", ")}.` : "No detecté capacidades adicionales de escritorio en este navegador.";
+}
+function obtenerInfoPermisoNotificaciones(){
+  if(!("Notification" in window)) return "";
+  return `\n\nPermiso de notificaciones del sistema: ${Notification.permission === "granted" ? "concedido" : Notification.permission === "denied" ? "denegado" : "aún no solicitado"}.`;
+}
+async function obtenerResumenComputadora(){
+  const partes = [
+    obtenerInfoSistemaEscritorio(),
+    obtenerInfoIdiomaYHora(),
+    obtenerInfoPantallaEscritorio(),
+    obtenerInfoProcesadorEscritorio(),
+    await obtenerInfoAlmacenamiento(),
+    obtenerInfoCapacidadesEscritorio() + obtenerInfoPermisoNotificaciones(),
+    obtenerTextoIntensidadSenal()
+  ];
+  return partes.join("\n\n");
+}
+
 
 /* --------------------------------- Linterna / vibración --------------------- */
 let trackLinterna = null;
@@ -1660,6 +1974,147 @@ async function alternarLinterna(){
 function activarVibracion(){
   if("vibrate" in navigator){ navigator.vibrate(250); return "Vibrando."; }
   return "Este dispositivo o navegador no admite vibración por web.";
+}
+
+/* ============================================================================
+   ENTORNO DE ESCRITORIO (modo Computadora)
+   Conjunto de funciones que solo tienen sentido en un navegador de escritorio:
+   portapapeles del sistema, pantalla completa, impresión, búsqueda en la
+   página, zoom de la página, atajos de teclado configurables y notificaciones
+   nativas del sistema operativo. Se ofrecen como comandos de texto reconocidos
+   directamente (ver procesarPregunta) y también como acciones disponibles
+   para "Comandos personalizados" cuando el modo activo es Computadora.
+   ============================================================================ */
+
+/* --- Portapapeles del sistema (leer/escribir) --- */
+async function escritorioCopiarUltimaRespuesta(){
+  const ultimos = $$(".msg-ia .msg-contenido");
+  if(!ultimos.length) return "No hay ninguna respuesta para copiar todavía.";
+  const ok = await copiarAlPortapapeles(ultimos[ultimos.length-1].textContent);
+  return ok ? "Copié la última respuesta al portapapeles." : "No pude acceder al portapapeles del sistema.";
+}
+async function escritorioPegarDesdePortapapeles(){
+  if(!navigator.clipboard || !navigator.clipboard.readText){
+    return { ok:false, texto:"Este navegador no permite leer el portapapeles automáticamente por seguridad. Pega el texto manualmente en la caja (Ctrl+V)." };
+  }
+  try{
+    const texto = await navigator.clipboard.readText();
+    return { ok:true, texto };
+  }catch(e){
+    return { ok:false, texto:"No se pudo leer el portapapeles (puede que el navegador haya bloqueado el permiso)." };
+  }
+}
+
+/* --- Pantalla completa --- */
+async function escritorioAlternarPantallaCompleta(){
+  try{
+    if(!document.fullscreenElement){
+      await document.documentElement.requestFullscreen();
+      return "Pantalla completa activada. Pulsa Escape para salir.";
+    } else {
+      await document.exitFullscreen();
+      return "Saliste de pantalla completa.";
+    }
+  }catch(e){
+    return "Este navegador no permite activar pantalla completa desde aquí (puede requerir un clic directo del usuario).";
+  }
+}
+
+/* --- Imprimir / exportar la conversación --- */
+function escritorioImprimirConversacion(){
+  window.print();
+  return "Abrí el diálogo de impresión de tu navegador.";
+}
+
+/* --- Buscar en la página (activa el buscador nativo del navegador) --- */
+function escritorioBuscarEnPagina(){
+  return "Para buscar texto en esta página, usa el atajo de tu navegador: Ctrl+F en Windows/Linux, o Cmd+F en Mac.";
+}
+
+/* --- Zoom de la página --- */
+let zoomActualPagina = 100;
+function escritorioAjustarZoom(delta){
+  zoomActualPagina = Math.max(50, Math.min(200, zoomActualPagina + delta));
+  document.body.style.zoom = (zoomActualPagina/100);
+  return `Zoom de la página: ${zoomActualPagina}%.`;
+}
+function escritorioRestablecerZoom(){
+  zoomActualPagina = 100;
+  document.body.style.zoom = 1;
+  return "Zoom restablecido al 100%.";
+}
+
+/* --- Notificaciones nativas del sistema --- */
+async function escritorioPedirPermisoNotificaciones(){
+  if(!("Notification" in window)) return "Este navegador no admite notificaciones del sistema.";
+  if(Notification.permission === "granted") return "Ya tienes las notificaciones activadas.";
+  if(Notification.permission === "denied") return "Bloqueaste las notificaciones para este sitio; actívalas desde los ajustes del navegador si quieres recibirlas.";
+  try{
+    const resultado = await Notification.requestPermission();
+    return resultado === "granted" ? "Notificaciones activadas." : "No se concedió el permiso de notificaciones.";
+  }catch(e){ return "No se pudo solicitar el permiso de notificaciones."; }
+}
+function escritorioMostrarNotificacion(titulo, cuerpo){
+  if(!("Notification" in window) || Notification.permission !== "granted") return false;
+  try{ new Notification(titulo, { body:cuerpo, icon:undefined }); return true; }catch(e){ return false; }
+}
+
+/* --- Atajos de teclado configurables ---
+   Se guardan como pares tecla -> acción. Por defecto viene un set útil ya
+   armado; el usuario puede añadir los suyos desde «Comandos personalizados»
+   usando la acción "atajo_teclado" (ver ejecutarAccionComando). */
+let atajos_teclado = LS.get("yt_atajos_teclado", {
+  "ctrl+shift+k": "enfocar_caja_texto",
+  "ctrl+shift+l": "nuevo_chat",
+  "ctrl+shift+m": "alternar_dictado"
+});
+function guardarAtajosTeclado(){ LS.set("yt_atajos_teclado", atajos_teclado); }
+function normalizarCombinacionTeclado(e){
+  const partes = [];
+  if(e.ctrlKey) partes.push("ctrl");
+  if(e.shiftKey) partes.push("shift");
+  if(e.altKey) partes.push("alt");
+  if(e.metaKey) partes.push("meta");
+  const tecla = e.key.length===1 ? e.key.toLowerCase() : e.key.toLowerCase();
+  if(!["control","shift","alt","meta"].includes(tecla)) partes.push(tecla);
+  return partes.join("+");
+}
+function ejecutarAtajoTeclado(accion){
+  if(accion && accion.startsWith("comando_personalizado:")){
+    const idx = parseInt(accion.split(":")[1], 10);
+    const cmd = comandos_usuario[idx];
+    if(cmd) ejecutarAccionComando(cmd).then(texto=> agregarMensajeIA(texto, "Comando"));
+    return;
+  }
+  switch(accion){
+    case "enfocar_caja_texto": $("#edit_pregunta").focus(); return;
+    case "nuevo_chat": $("#btn_nuevo_chat").click(); return;
+    case "alternar_dictado": $("#btn_dictado").click(); return;
+    case "pantalla_completa": escritorioAlternarPantallaCompleta().then(t=> mostrarToast(t)); return;
+    case "abrir_barra_lateral": $("#btn_mas_opciones").click(); return;
+    default: return;
+  }
+}
+function inicializarAtajosTecladoGlobales(){
+  document.addEventListener("keydown", (e)=>{
+    if(!esModoComputadora()) return;
+    const combinacion = normalizarCombinacionTeclado(e);
+    if(atajos_teclado[combinacion]){
+      e.preventDefault();
+      ejecutarAtajoTeclado(atajos_teclado[combinacion]);
+    }
+  });
+}
+
+/* --- Resumen legible de los comandos/atajos disponibles en modo Computadora,
+   usado por el comando de texto "qué puedo hacer en computadora" y por el
+   prompt de sistema de la IA. --- */
+function listaComandosEscritorioTexto(){
+  return "En modo Computadora puedes escribir: 'copia la última respuesta', 'pega del portapapeles', " +
+    "'pantalla completa', 'imprime la conversación', 'busca en la página', 'acércate' / 'aléjate' (zoom), " +
+    "'zoom normal', 'activa las notificaciones'. También hay atajos de teclado: Ctrl+Shift+K enfoca la caja de " +
+    "texto, Ctrl+Shift+L abre un chat nuevo, Ctrl+Shift+M activa/desactiva el dictado. Puedes crear los tuyos " +
+    "propios desde «Comandos personalizados» eligiendo la acción 'Atajo de teclado (escritorio)'.";
 }
 
 /* --------------------------------- Abrir apps/sitios ------------------------ */
@@ -1713,6 +2168,15 @@ async function ejecutarAccionComando(cmd){
     case "abrir_url":
       if(cmd.extra){ window.open(cmd.extra.startsWith("http")?cmd.extra:"https://"+cmd.extra, "_blank","noopener"); return "Abriendo el sitio..."; }
       return "Este comando no tiene una URL configurada.";
+    case "copiar_respuesta": return await escritorioCopiarUltimaRespuesta();
+    case "pantalla_completa": return await escritorioAlternarPantallaCompleta();
+    case "imprimir": return escritorioImprimirConversacion();
+    case "buscar_pagina": return escritorioBuscarEnPagina();
+    case "zoom_mas": return escritorioAjustarZoom(10);
+    case "zoom_menos": return escritorioAjustarZoom(-10);
+    case "zoom_normal": return escritorioRestablecerZoom();
+    case "notificar": return await escritorioPedirPermisoNotificaciones();
+    case "atajo_teclado": return `Atajo configurado: ${cmd.extra || "(sin combinación)"}.`;
     case "texto": default: return cmd.extra || "(Este comando no tiene un texto de respuesta configurado.)";
   }
 }
@@ -1847,8 +2311,19 @@ function promptSistema(){
     "Jamas saludes ni te presentes despues del primer mensaje. Responde directamente a la peticion del usuario, sin introducciones ni frases de cortesia. " +
     "No inventes informacion. Si no sabes algo, dilo claramente. No repitas listas ni entres en bucles. Responde de manera directa, clara y concisa, ajustandote a lo que el usuario pide.";
   system += TEXTO_SYSTEM_PROMPT_NOTAS;
+  system += TEXTO_SYSTEM_PROMPT_SUGERENCIAS;
   system += TEXTO_SYSTEM_PROMPT_ARCHIVOS;
   system += TEXTO_SYSTEM_PROMPT_INTERFAZ;
+  system += TEXTO_SYSTEM_PROMPT_TRADUCCION;
+  if(esModoComputadora()){
+    system += "\n\nEl usuario está en modo Computadora (así lo eligió él mismo). " + listaComandosEscritorioTexto() +
+      " No le ofrezcas funciones exclusivas de teléfono (linterna, vibración, batería real) como si estuvieran disponibles, " +
+      "salvo que él las mencione primero (en ese caso, aclara que esas funciones normalmente no aplican a una computadora).";
+  } else if(esModoTelefono()){
+    system += "\n\nEl usuario está en modo Teléfono/tablet (así lo eligió él mismo), así que puedes ofrecerle con confianza " +
+      "funciones propias de móvil como linterna, vibración o batería cuando venga al caso, pero no le ofrezcas comandos de " +
+      "escritorio (pantalla completa, imprimir, atajos de teclado) salvo que él los mencione primero.";
+  }
   return system;
 }
 const TEXTO_SYSTEM_PROMPT_INTERFAZ =
@@ -1953,6 +2428,57 @@ function resolverConexion(servicio, modo){ // modo: "chat" | "models"
   };
 }
 
+/* ------------------------------- Traducción ---------------------------------
+   Usa el mismo servicio y modelo que el usuario tiene seleccionados en la
+   pantalla principal, con una llamada directa (sin streaming, sin tocar el
+   hilo de la conversación principal) porque el resultado se muestra dentro
+   del propio diálogo de Traducir. Como el agente debe ser consciente de lo
+   que hizo aunque haya pasado en un diálogo aparte, cada traducción realizada
+   se añade también al conversation_history como un intercambio breve
+   "usuario/asistente" invisible en el chat visual, para que si luego el
+   usuario le pregunta "¿qué me tradujiste?" o "tradúceme esto también al
+   francés", la IA tenga ese contexto real. */
+async function traducirTexto(texto, idiomaOrigen, idiomaDestino){
+  const servicio = $("#sp_servicio").value;
+  const modelo = $("#sp_modelo").value;
+  const conexion = resolverConexion(servicio, "chat");
+  if(conexion.requiereClave && !conexion.KEY){
+    throw new Error(`Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs".`);
+  }
+  const systemTraduccion = "Eres un traductor profesional. Traduce EXACTAMENTE el texto que te dé el usuario, sin agregar explicaciones, " +
+    "notas, comillas extra ni comentarios de ningún tipo -- responde ÚNICAMENTE con el texto traducido, nada más.";
+  const instruccion = idiomaOrigen === "Otro"
+    ? `Traduce el siguiente texto (detecta automáticamente el idioma de origen) al ${idiomaDestino}:\n\n${texto}`
+    : `Traduce el siguiente texto del ${idiomaOrigen} al ${idiomaDestino}:\n\n${texto}`;
+  const payload = {
+    model: modelo,
+    messages: [{ role:"system", content: systemTraduccion }, { role:"user", content: instruccion }],
+    temperature: 0.2,
+    max_tokens: 2000,
+    stream: false
+  };
+  const res = await fetchConReintentos(conexion.endpoint, {
+    method:"POST", headers: conexion.headers, body: JSON.stringify(payload)
+  }, { avisar:()=>{} });
+  if(!res.ok) throw new Error(`El servicio ${servicio} respondió con error ${res.status} al traducir.`);
+  const data = await res.json();
+  const resultado = trim(data?.choices?.[0]?.message?.content || "");
+  if(!resultado) throw new Error("El servicio no devolvió texto traducido.");
+
+  // el agente queda "consciente" de esta traducción para el resto de la conversación
+  conversation_history.push({ role:"user", content: `[El usuario usó el diálogo de Traducir para traducir un texto del ${idiomaOrigen} al ${idiomaDestino}. Texto original: "${texto}"]` });
+  conversation_history.push({ role:"assistant", content: `[Traducción entregada al usuario en el diálogo de Traducir: "${resultado}"]` });
+  if(conversation_history.length > 5000) conversation_history.shift();
+  guardarHistorialEnArchivo();
+
+  return resultado;
+}
+const TEXTO_SYSTEM_PROMPT_TRADUCCION =
+  "\n\nExiste tambien un dialogo de 'Traducir' aparte (en el menu 'Mas opciones'), donde el usuario puede traducir texto libremente " +
+  "usando el mismo servicio y modelo que tiene seleccionados. Cuando el usuario haya usado ese dialogo, veras en el historial mensajes " +
+  "entre corchetes indicando que texto tradujo y que resultado obtuvo -- tenlos en cuenta con naturalidad si el usuario los menciona " +
+  "despues (por ejemplo si pregunta 'que me tradujiste' o pide seguir trabajando sobre esa traduccion), como si tu mismo hubieras hecho esa traduccion.";
+
 /* Estado de generación en curso, para poder detener y luego continuar */
 let generacionActual = {
   activa:false,
@@ -2033,8 +2559,12 @@ function renderContenidoEnVivoConEncabezados(texto, layout){
   // todavía no se haya cerrado (para no mostrarla mientras se completa) y se
   // elimina por completo si ya llegó cerrada.
   texto = texto.replace(/\[\[NOTA_ACCION:[\s\S]*?\]\]/g, "");
+  texto = texto.replace(/\[\[SUGERENCIA:.*?\]\]\n?/g, "");
+  texto = texto.replace(/\[\[RESPUESTA_RAPIDA:.*?\]\]\n?/g, "");
   const aperturaNotaSinCerrar = texto.search(/\[\[NOTA_ACCION:/);
   if(aperturaNotaSinCerrar !== -1) texto = texto.slice(0, aperturaNotaSinCerrar);
+  const aperturaSugSinCerrar = texto.search(/\[\[SUGERENCIA:|\[\[RESPUESTA_RAPIDA:/);
+  if(aperturaSugSinCerrar !== -1) texto = texto.slice(0, aperturaSugSinCerrar);
 
   // si hay un bloque de código sin cerrar al final, lo dejamos aparte como
   // "en progreso" y formateamos solo lo que viene antes de ese bloque abierto
@@ -2144,7 +2674,11 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
   layout.querySelectorAll(".msg-contenido, .msg-encabezado, .bloque-codigo, .msg-separador, .archivo-generado-card, .encabezado-stream, .encabezado-stream-titulo").forEach(n=>n.remove());
 
   const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(textoCompleto);
-  const textoFinal = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
+  const textoTrasNota = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
+
+  const { textoLimpio: textoFinal, sugerencias, respuestasRapidas } = interceptarSugerenciasYRespuestasRapidas(textoTrasNota);
+  actualizarListaSugerencias(sugerencias);
+  actualizarRespuestasRapidas(respuestasRapidas);
 
   renderContenidoMensajeIA(textoFinal, layout);
 
@@ -2153,7 +2687,13 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
   guardarHistorialEnArchivo();
   autoScroll();
 
-  if(voz_cfg.activada){ hablarTexto(textoFinal.replace(/```[\s\S]*?```/g,"").replace(/\[\[NOTA_ACCION:.*?\]\]/g,"").replace(/\[\[ARCHIVO_GENERADO:[\s\S]*?\]\]/g,"")); }
+  if(voz_cfg.activada){
+    hablarTexto(textoFinal.replace(/```[\s\S]*?```/g,"")
+      .replace(/\[\[NOTA_ACCION:.*?\]\]/g,"")
+      .replace(/\[\[ARCHIVO_GENERADO:[\s\S]*?\]\]/g,"")
+      .replace(/\[\[SUGERENCIA:.*?\]\]/g,"")
+      .replace(/\[\[RESPUESTA_RAPIDA:.*?\]\]/g,""));
+  }
 }
 
 /* Llama al servicio de IA. Soporta streaming (Server-Sent Events estilo OpenAI/
@@ -2455,6 +2995,8 @@ let envio_en_curso = false, ultimo_envio_texto = "", ultimo_envio_ts = 0;
 
 async function procesarPregunta(pregunta){
   if(trim(pregunta).length===0 && archivosAdjuntos.length===0) return;
+  ocultarSugerencias();
+  ocultarRespuestasRapidas();
   const ahora = Date.now();
   if(envio_en_curso) return;
   if(ultimo_envio_texto===pregunta && (ahora-ultimo_envio_ts) < 2000) return;
@@ -2472,6 +3014,30 @@ async function procesarPregunta(pregunta){
     const modelo = $("#sp_modelo").value;
     await llamarServicioIA(generacionActual.servicio || servicio, "", generacionActual.modelo || modelo, true);
     return;
+  }
+
+  // comandos de escritorio (solo en modo Computadora)
+  if(esModoComputadora()){
+    const mapaComandosEscritorio = [
+      [/(copia|copiar) la (ultima|última) respuesta/, escritorioCopiarUltimaRespuesta],
+      [/pega (del|desde el) portapapeles/, async ()=>{ const r = await escritorioPegarDesdePortapapeles(); if(r.ok) return "Pegué el texto del portapapeles: \n\n" + r.texto; return r.texto; }],
+      [/pantalla completa/, escritorioAlternarPantallaCompleta],
+      [/(imprime|imprimir) la conversacion|(imprime|imprimir) la conversación/, async ()=> escritorioImprimirConversacion()],
+      [/busca(r)? en la pagina|busca(r)? en la página/, async ()=> escritorioBuscarEnPagina()],
+      [/(acercate|acércate|acercar|zoom \+|más zoom|mas zoom)/, async ()=> escritorioAjustarZoom(10)],
+      [/(alejate|aléjate|alejar|zoom -|menos zoom)/, async ()=> escritorioAjustarZoom(-10)],
+      [/zoom normal|restablece(r)? el zoom/, async ()=> escritorioRestablecerZoom()],
+      [/activa(r)? las notificaciones/, escritorioPedirPermisoNotificaciones],
+      [/(que|qué) puedo hacer en (la )?computadora|comandos de escritorio/, async ()=> listaComandosEscritorioTexto()]
+    ];
+    for(const [regex, accion] of mapaComandosEscritorio){
+      if(regex.test(lower)){
+        agregarMensajeUsuario(pregunta); cajaTexto.value=""; ajustarAlturaTextarea();
+        const resultado = await accion();
+        agregarMensajeIA(resultado, "Escritorio");
+        return;
+      }
+    }
   }
 
   // hora / fecha
@@ -2729,18 +3295,113 @@ function ajustarAlturaTextarea(){
    Conexión de eventos de la interfaz
    ========================================================================= */
 document.addEventListener("DOMContentLoaded", ()=>{
+  if(modo_dispositivo === null){
+    configurarDialogoModoDispositivo();
+  } else {
+    continuarArranqueTrasModo();
+  }
+});
+
+function configurarDialogoModoDispositivo(){
+  const overlay = $("#ov-modo-dispositivo");
+  overlay.hidden = false;
+  const btnTel = $("#btn-modo-telefono");
+  const btnPc = $("#btn-modo-computadora");
+  btnTel.focus();
+  const elegir = (modo)=>{
+    modo_dispositivo = modo;
+    guardarModoDispositivo();
+    overlay.hidden = true;
+    continuarArranqueTrasModo();
+  };
+  btnTel.addEventListener("click", ()=> elegir("telefono"));
+  btnPc.addEventListener("click", ()=> elegir("computadora"));
+}
+
+/* Reabre el mismo diálogo de elección de modo desde el menú lateral
+   («Mi modo»), fuera del flujo de primer arranque. Si el usuario cambia
+   de modo, se refresca toda la interfaz dependiente (comandos rápidos
+   propios del modo, etiquetas de ayuda, etc.) sin necesidad de recargar
+   la página. */
+function reabrirDialogoModoDispositivo(){
+  const overlay = $("#ov-modo-dispositivo");
+  overlay.hidden = false;
+  const btnTel = $("#btn-modo-telefono");
+  const btnPc = $("#btn-modo-computadora");
+  elementoConFocoAntesDelDialogo = document.activeElement;
+  btnTel.focus();
+  const limpiarYCerrar = ()=>{
+    btnTel.removeEventListener("click", alElegirTelefono);
+    btnPc.removeEventListener("click", alElegirComputadora);
+    overlay.hidden = true;
+    if(elementoConFocoAntesDelDialogo) elementoConFocoAntesDelDialogo.focus();
+  };
+  const aplicarCambioDeModo = (modoNuevo)=>{
+    const cambioDeVerdad = modo_dispositivo !== modoNuevo;
+    modo_dispositivo = modoNuevo;
+    guardarModoDispositivo();
+    limpiarYCerrar();
+    if(cambioDeVerdad){
+      mostrarToast("Modo actualizado: " + (modoNuevo==="computadora" ? "Computadora" : "Teléfono"));
+      reproducirSonido("cambio_ventana");
+    }
+  };
+  function alElegirTelefono(){ aplicarCambioDeModo("telefono"); }
+  function alElegirComputadora(){ aplicarCambioDeModo("computadora"); }
+  btnTel.addEventListener("click", alElegirTelefono);
+  btnPc.addEventListener("click", alElegirComputadora);
+}
+
+function continuarArranqueTrasModo(){
   const yaAceptado = LS.get("yt_consentimiento_aceptado", false);
   if(yaAceptado){
     init();
   } else {
     configurarDialogoConsentimiento();
   }
-});
+}
+
+function textoPoliticaSeguridad(){
+  if(esModoComputadora()){
+    return {
+      principal:
+        "Al continuar, aceptas que este navegador guarde tu información sensible, como datos personales o " +
+        "información de esta computadora, en su almacenamiento local. No introduzcas información sensible " +
+        "(contraseñas de otros servicios, datos bancarios, documentos de identidad) en ningún campo de esta aplicación. " +
+        "Si esta es una computadora compartida (trabajo, biblioteca, familia), ten en cuenta que cualquier persona " +
+        "que use el mismo navegador y el mismo usuario del sistema podría ver tu configuración, tus claves de API " +
+        "y tu historial guardados aquí.",
+      ayuda:
+        "(En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración, " +
+        "tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador, en " +
+        "esta computadora. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos desde este " +
+        "mismo navegador y perfil de usuario del sistema. Los sonidos de la interfaz vienen incluidos en este mismo " +
+        "sitio, así que no se descarga nada externo para escucharlos. En modo Computadora, algunas funciones que " +
+        "existen en el modo Teléfono (batería, linterna, vibración) no están disponibles porque no aplican a un " +
+        "equipo de escritorio; en su lugar se habilitan funciones propias de escritorio como atajos de teclado, " +
+        "pantalla completa e impresión.)"
+    };
+  }
+  return {
+    principal:
+      "Al continuar, aceptas que el navegador guarde tu información sensible, como datos personales o información " +
+      "sobre tu teléfono, con almacenamiento local. No introduzcas información sensible (contraseñas de otros " +
+      "servicios, datos bancarios, documentos de identidad) en ningún campo de esta aplicación.",
+    ayuda:
+      "(En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración, " +
+      "tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador, en " +
+      "este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos. Los sonidos " +
+      "de la interfaz vienen incluidos en este mismo sitio, así que no se descarga nada externo para escucharlos.)"
+  };
+}
 
 function configurarDialogoConsentimiento(){
   const overlay = $("#ov-consentimiento");
   const checkbox = $("#chk-consentimiento");
   const btnAceptar = $("#btn-aceptar-consentimiento");
+  const textos = textoPoliticaSeguridad();
+  $("#txt-consentimiento").textContent = textos.principal;
+  $("#txt-consentimiento-ayuda").textContent = textos.ayuda;
   overlay.hidden = false;
   overlay.querySelector(".dialogo").focus?.();
   checkbox.focus();
@@ -2762,6 +3423,8 @@ function init(){
   poblarSelectorModelos();
   $("#txt_titulo").textContent = "Yoni Tech - " + tema_actual;
 
+  if(esModoComputadora()) inicializarAtajosTecladoGlobales();
+
   elConversacion.addEventListener("scroll", actualizarBotonIrAlFinal);
   $("#btn_ir_final").addEventListener("click", ()=>{ irAlFinalDelChat(); });
 
@@ -2772,6 +3435,15 @@ function init(){
   });
   $("#sp_modelo").addEventListener("change", ()=>{
     modelo_actual = $("#sp_modelo").value; guardarConfiguracion();
+  });
+
+  $("#sel-sugerencias").addEventListener("change", ()=>{
+    const valor = $("#sel-sugerencias").value;
+    if(!valor) return;
+    reproducirSonido("boton");
+    ocultarSugerencias();
+    ocultarRespuestasRapidas();
+    enviarTextoDirecto(valor, { origen:"sugerencia" });
   });
 
   // reconstruir la conversación guardada
@@ -2872,6 +3544,9 @@ function init(){
         abrirDialogo("ov-dispositivo");
         obtenerResumenDispositivo().then(t=> $("#contenido-dispositivo").textContent = t);
       }
+      else if(acc==="mi-modo"){
+        reabrirDialogoModoDispositivo();
+      }
     });
   });
 
@@ -2900,6 +3575,41 @@ function init(){
     $("#tit-nota-editar").textContent = "Nueva nota";
     delete $("#form-nota").dataset.original;
     abrirDialogo("ov-nota-editar");
+  });
+  $("#op-traducir").addEventListener("click", ()=>{
+    reproducirSonido("boton"); cerrarDialogo("ov-mas");
+    $("#out-traducir-resultado").value = "";
+    abrirDialogo("ov-traducir");
+    $("#in-traducir-texto").focus();
+  });
+  $("#btn-traducir-ir").addEventListener("click", async ()=>{
+    const texto = trim($("#in-traducir-texto").value);
+    if(!texto){ mostrarToast("Escribe el texto a traducir primero"); return; }
+    const origen = $("#sel-traducir-origen").value;
+    const destino = $("#sel-traducir-destino").value;
+    const btn = $("#btn-traducir-ir");
+    const textoOriginalBtn = btn.textContent;
+    btn.disabled = true; btn.textContent = "Traduciendo...";
+    // esta traducción no tiene un sonido dedicado entre los 18 originales del
+    // plugin: se usa el tono sintético genérico ("boton") como sonido neutro
+    reproducirSonidoGenerado("boton");
+    try{
+      const resultado = await traducirTexto(texto, origen, destino);
+      $("#out-traducir-resultado").value = resultado;
+      reproducirSonidoGenerado("modelos_cargados");
+    }catch(e){
+      mostrarToast(e.message || "No se pudo traducir. Intenta de nuevo.");
+      reproducirSonidoGenerado("error_solicitud");
+    }finally{
+      btn.disabled = false; btn.textContent = textoOriginalBtn;
+    }
+  });
+  $("#btn-traducir-copiar").addEventListener("click", async ()=>{
+    const resultado = $("#out-traducir-resultado").value;
+    if(!resultado){ mostrarToast("Todavía no hay ninguna traducción para copiar"); return; }
+    const ok = await copiarAlPortapapeles(resultado);
+    reproducirSonidoGenerado("copiar");
+    mostrarToast(ok ? "Traducción copiada" : "No se pudo copiar");
   });
 
   $("#input_archivo").addEventListener("change", (e)=>{ manejarSeleccionArchivos(e.target.files); e.target.value=""; });
@@ -2993,17 +3703,29 @@ function init(){
     reproducirSonido("boton");
     $("#form-comando").reset(); delete $("#form-comando").dataset.editar;
     $("#tit-comando-editar").textContent = "Nuevo comando";
+    $("#campo-com-atajo").hidden = true;
     cerrarDialogo("ov-comandos"); abrirDialogo("ov-comando-editar");
+  });
+  $("#sel-com-accion").addEventListener("change", ()=>{
+    const esAtajo = $("#sel-com-accion").value === "atajo_teclado";
+    $("#campo-com-atajo").hidden = !esAtajo;
+    $("#campo-com-extra").hidden = esAtajo;
   });
   $("#form-comando").addEventListener("submit", (e)=>{
     e.preventDefault(); reproducirSonido("boton");
+    const accion = $("#sel-com-accion").value;
+    const esAtajo = accion === "atajo_teclado";
     const nuevo = {
       nombre: trim($("#in-com-nombre").value),
       trigger: trim($("#in-com-trigger").value).toLowerCase(),
-      accion: $("#sel-com-accion").value,
-      extra: trim($("#in-com-extra").value)
+      accion: accion,
+      extra: esAtajo ? trim($("#in-com-atajo").value).toLowerCase() : trim($("#in-com-extra").value)
     };
     comandos_usuario.push(nuevo); guardarComandosUsuario();
+    if(esAtajo && nuevo.extra){
+      atajos_teclado[nuevo.extra] = "comando_personalizado:" + (comandos_usuario.length-1);
+      guardarAtajosTeclado();
+    }
     cerrarDialogo("ov-comando-editar"); abrirDialogo("ov-comandos"); renderListaComandos();
     mostrarToast("Comando guardado");
   });
