@@ -6,6 +6,9 @@
 <title>Yoni Tech</title>
 <meta name="description" content="Yoni Tech - asistente de inteligencia artificial, versión web accesible.">
 <meta name="theme-color" content="#1A1A1A">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
     --bg:#1A1A1A; --bg-chat:#000000; --panel:#232323; --panel2:#2b2b2b;
@@ -174,6 +177,18 @@
     border:1px solid #555; max-width:90vw; text-align:center; box-shadow:0 3px 10px rgba(0,0,0,.4);
   }
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  #mini-player-wrap{ display:none; background:#000; border-radius:8px; overflow:hidden; margin-bottom:10px; }
+  #mini-player-wrap.visible{ display:block; }
+  #mini-player-wrap iframe{ width:100%; aspect-ratio:16/9; border:0; display:block; }
+  .reproductor-controles{ display:flex; gap:8px; padding:8px; background:var(--panel2); align-items:center; }
+  .reproductor-controles button{ background:var(--indigo); color:#fff; padding:8px 10px; font-size:1rem; flex:0 0 auto; }
+  .reproductor-controles .titulo-actual{ flex:1; font-size:0.82rem; color:var(--texto-tenue); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .resultado-musica-item{ background:var(--panel2); border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .resultado-musica-item .info{ flex:1; font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .resultado-musica-item .acciones{ display:flex; gap:6px; flex-shrink:0; }
+  .seccion-adicional{ border-top:1px solid var(--border); padding-top:12px; margin-top:12px; }
+  .seccion-adicional h3{ margin:0 0 6px; font-size:0.95rem; color:var(--naranja); }
+  .badge-sin-clave{ background:var(--verde); color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:10px; font-weight:700; margin-left:6px; vertical-align:middle; }
   @media (max-width:480px){
     header.cabecera h1{ font-size:1rem; }
     .fila-selector label{ min-width:54px; font-size:0.78rem; }
@@ -186,6 +201,7 @@
 <div id="app">
   <header class="cabecera">
     <h1 id="txt_titulo">Yoni Tech - General</h1>
+    <button class="btn" id="btn_config_rapida" style="background:var(--gris);" aria-haspopup="dialog" aria-label="Ajustes adicionales" title="Ajustes adicionales">⚙️</button>
     <button class="btn btn-salir" id="btn_salir" aria-label="Salir / limpiar sesión visual">Salir</button>
   </header>
 
@@ -206,6 +222,7 @@
       <select id="sp_servicio" aria-describedby="ayuda-selectores">
         <option value="Mistral AI">Mistral AI</option>
         <option value="Morph">Morph</option>
+        <option value="Kimi AI">Kimi AI (sin clave)</option>
       </select>
       <button class="btn btn-recargar" id="btn_recargar_modelos">Recargar</button>
     </div>
@@ -291,6 +308,22 @@
   </div>
 </div>
 
+<div class="overlay" id="ov-desbloqueo" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-desbloqueo" tabindex="-1">
+    <h2 id="tit-desbloqueo">Ingresá tu contraseña</h2>
+    <p class="ayuda">Tu historial, tus notas y tus claves de API están cifrados en este navegador. Escribí tu
+      contraseña para continuar.</p>
+    <div class="campo">
+      <label for="in-desbloquear">Contraseña</label>
+      <input type="password" id="in-desbloquear" autocomplete="current-password">
+    </div>
+    <p class="ayuda" id="txt-error-desbloqueo" style="color:var(--rojo); display:none;">Contraseña incorrecta. Probá de nuevo.</p>
+    <div class="fila-2" style="margin-top:10px;">
+      <button type="button" class="btn" style="background:var(--verde); width:100%;" id="btn-desbloquear">Desbloquear</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== DIALOGOS ===================== -->
 
 <div class="overlay" id="ov-menu" hidden>
@@ -306,8 +339,11 @@
       <button style="background:#0288D1" data-accion="configurar-sonidos">Sonidos</button>
       <button style="background:var(--cyan)" data-accion="comandos">Comandos personalizados</button>
       <button style="background:#455A64" data-accion="notas">Mis notas</button>
+      <button style="background:var(--rojo);" data-accion="reproductor-musica">🎵 Reproductor de música</button>
+      <button style="background:#607D8B" data-accion="ajustes-adicionales">⚙️ Ajustes adicionales</button>
       <button style="background:#455A64" data-accion="dispositivo">Info del dispositivo</button>
       <button style="background:#00838F" data-accion="mi-modo">Mi modo (teléfono / computadora)</button>
+      <button style="background:#5D4037" data-accion="politica-seguridad">🔒 Política de seguridad</button>
       <button style="background:var(--rojo)" data-cerrar="ov-menu">Cerrar barra lateral</button>
     </div>
   </div>
@@ -374,6 +410,7 @@
     <button class="cerrar-x" data-cerrar="ov-api" aria-label="Cerrar">✕</button>
     <h2 id="tit-api">Gestionar APIs</h2>
     <p class="ayuda">Tus claves se guardan solo en este navegador (localStorage), nunca se envían a ningún servidor propio.</p>
+    <p class="ayuda"><strong>Kimi AI</strong><span class="badge-sin-clave">sin clave</span> no necesita nada aquí: ya funciona directamente desde el selector de «Servicio» de la pantalla principal.</p>
     <div class="campo">
       <label for="in-mistral-key">Clave de Mistral AI</label>
       <input type="password" id="in-mistral-key" autocomplete="off">
@@ -675,6 +712,140 @@
   </div>
 </div>
 
+<div class="overlay" id="ov-adicionales" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-adicionales">
+    <button class="cerrar-x" data-cerrar="ov-adicionales" aria-label="Cerrar">✕</button>
+    <h2 id="tit-adicionales">Ajustes adicionales</h2>
+
+    <div class="seccion-adicional" style="border-top:none; margin-top:0; padding-top:0;">
+      <h3>Pensamiento profundo</h3>
+      <p class="ayuda">
+        Cuando está activado, le pido a la IA que se tome más espacio para razonar paso a paso antes
+        de darte la respuesta final (útil para preguntas difíciles o código complejo). La respuesta puede
+        tardar un poco más en aparecer.
+      </p>
+      <div class="toggle-row">
+        <label for="chk-pensamiento-profundo">Activar pensamiento profundo</label>
+        <span class="switch"><input type="checkbox" id="chk-pensamiento-profundo"><span class="slider-tog"></span></span>
+      </div>
+    </div>
+
+    <div class="seccion-adicional">
+      <h3>Bloqueo con contraseña</h3>
+      <p class="ayuda">
+        Cifra tu historial, tus notas y tus claves de API guardados en este navegador (AES-GCM) con una
+        contraseña que solo vos conocés. <strong>Si la olvidás, esos datos cifrados no se pueden recuperar de
+        ninguna forma</strong>: tendrías que borrarlos y empezar de nuevo.
+      </p>
+      <div class="toggle-row">
+        <label for="chk-bloqueo-activado">Activar bloqueo con contraseña</label>
+        <span class="switch"><input type="checkbox" id="chk-bloqueo-activado"><span class="slider-tog"></span></span>
+      </div>
+      <div class="campo" id="fila-nueva-contrasena" hidden>
+        <label for="in-nueva-contrasena">Contraseña</label>
+        <input type="password" id="in-nueva-contrasena" autocomplete="new-password">
+      </div>
+    </div>
+
+    <div class="seccion-adicional">
+      <h3>Servicio de IA sin clave</h3>
+      <p class="ayuda">
+        <strong>Kimi AI</strong><span class="badge-sin-clave">sin clave</span> ya está listo para usar desde el
+        selector de «Servicio» en la pantalla principal: no necesita ninguna clave API. Es un servicio gratuito
+        de terceros, así que puede ser menos estable que Mistral AI o Morph.
+      </p>
+    </div>
+
+    <div class="seccion-adicional">
+      <h3>Comando de activación</h3>
+      <p class="ayuda" id="txt-comando-activacion"></p>
+    </div>
+
+    <div class="seccion-adicional">
+      <h3>Comandos contextuales</h3>
+      <p class="ayuda">
+        La IA puede activar por su cuenta acciones de la aplicación cuando el contexto de la conversación lo deja
+        claro (por ejemplo pedir música, vibrar, abrir una pantalla de configuración o abrir el reproductor), sin
+        que tengas que usar una palabra exacta ni un botón. Tú siempre puedes seguir usando los botones normales
+        también.
+      </p>
+    </div>
+
+    <div class="seccion-adicional">
+      <h3>Más</h3>
+      <div class="menu-lista">
+        <button type="button" style="background:var(--rojo)" id="btn-abrir-reproductor-desde-adicionales">🎵 Abrir reproductor de música</button>
+        <button type="button" style="background:#5D4037" id="btn-abrir-politica-desde-adicionales">🔒 Ver política de seguridad</button>
+      </div>
+    </div>
+
+    <div class="fila-2" style="margin-top:14px;">
+      <button class="btn" style="background:var(--verde); width:100%;" id="btn-guardar-adicionales">Guardar</button>
+      <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-adicionales">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-politica" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-politica">
+    <button class="cerrar-x" data-cerrar="ov-politica" aria-label="Cerrar">✕</button>
+    <h2 id="tit-politica">Política de seguridad</h2>
+    <p id="txt-politica-principal" style="white-space:pre-wrap;"></p>
+    <p class="ayuda" id="txt-politica-ayuda" style="white-space:pre-wrap;"></p>
+    <p class="ayuda" id="txt-politica-fecha"></p>
+    <p class="ayuda">Documentado por Jonathan (Yonathan), desarrollador principal de Yoni Tech.</p>
+    <div class="fila-2" style="margin-top:10px;">
+      <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-politica">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-reproductor" hidden>
+  <div class="dialogo" role="dialog" aria-modal="true" aria-labelledby="tit-reproductor" style="max-width:520px;">
+    <button class="cerrar-x" data-cerrar="ov-reproductor" aria-label="Cerrar">✕</button>
+    <h2 id="tit-reproductor">Reproductor de música</h2>
+    <p class="ayuda">
+      Busca una canción y reprodúcela aquí mismo con el reproductor oficial de YouTube (respeta sus condiciones
+      de uso: no se descarga audio ni se hace ningún tipo de ripeo). También puedes guardarla en tu playlist.
+    </p>
+    <div class="campo">
+      <label for="in-reproductor-buscar">Buscar canción o artista</label>
+      <div class="fila-2">
+        <input type="text" id="in-reproductor-buscar" style="flex:1;">
+        <button type="button" class="btn" style="background:var(--verde)" id="btn-reproductor-buscar">Buscar</button>
+      </div>
+    </div>
+
+    <div id="mini-player-wrap"><div id="mini-player"></div></div>
+    <div class="reproductor-controles" id="reproductor-controles" style="display:none;">
+      <button type="button" id="btn-reproductor-anterior" aria-label="Anterior" title="Anterior">⏮</button>
+      <button type="button" id="btn-reproductor-play-pausa" aria-label="Reproducir o pausar" title="Reproducir o pausar">⏯</button>
+      <button type="button" id="btn-reproductor-siguiente" aria-label="Siguiente" title="Siguiente">⏭</button>
+      <span class="titulo-actual" id="reproductor-titulo-actual"></span>
+    </div>
+
+    <div class="toggle-row">
+      <label for="chk-reproducir-siguiente">Reproducir automáticamente la siguiente de la playlist</label>
+      <span class="switch"><input type="checkbox" id="chk-reproducir-siguiente"><span class="slider-tog"></span></span>
+    </div>
+    <div class="toggle-row">
+      <label for="chk-avisar-conexion-limitada">Avisarme antes de reproducir con datos móviles / conexión limitada</label>
+      <span class="switch"><input type="checkbox" id="chk-avisar-conexion-limitada"><span class="slider-tog"></span></span>
+    </div>
+
+    <div id="resultados-busqueda-musica"></div>
+
+    <div class="seccion-adicional">
+      <h3>Mi playlist</h3>
+      <div class="lista-notas" id="lista-playlist-musica"></div>
+    </div>
+
+    <div class="fila-2" style="margin-top:10px;">
+      <button class="btn" style="background:var(--gris); width:100%;" data-cerrar="ov-reproductor">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 "use strict";
@@ -734,6 +905,55 @@ const LS = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
 };
 
+/* ------------------------------ Bloqueo con contraseña ---------------------
+   Función opcional (apagada por defecto, cero cambio de comportamiento si no
+   se activa). Cuando está activada, el historial de conversación, las notas
+   y las claves de API se cifran con AES-GCM (Web Crypto API) usando una clave
+   derivada (PBKDF2) de una contraseña que solo el usuario conoce, y NO se
+   guarda ninguna copia en texto plano de esos tres datos. Sin esto, esta app
+   ya no usaba cookies ni servidor propio (ver política de seguridad); esto
+   simplemente cifra lo que ya se guardaba solo localmente. */
+let bloqueo_activado = LS.get("yt_bloqueo_activado", false);
+let claveCifradoSesion = null; // CryptoKey en memoria; nunca se persiste
+
+function ab2b64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function b642ab(b64){ return Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); }
+
+async function derivarClaveDesdeContrasena(contrasena, saltB64){
+  const salt = saltB64 ? b642ab(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+  const claveBase = await crypto.subtle.importKey("raw", new TextEncoder().encode(contrasena), "PBKDF2", false, ["deriveKey"]);
+  const clave = await crypto.subtle.deriveKey(
+    { name:"PBKDF2", salt, iterations:150000, hash:"SHA-256" },
+    claveBase, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]
+  );
+  if(!saltB64) LS.set("yt_bloqueo_salt", ab2b64(salt));
+  return clave;
+}
+async function cifrarJSON(obj, clave){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const datos = new TextEncoder().encode(JSON.stringify(obj));
+  const cifrado = await crypto.subtle.encrypt({name:"AES-GCM", iv}, clave, datos);
+  return { iv: ab2b64(iv), datos: ab2b64(cifrado) };
+}
+async function descifrarJSON(blob, clave){
+  const plano = await crypto.subtle.decrypt({name:"AES-GCM", iv:b642ab(blob.iv)}, clave, b642ab(blob.datos));
+  return JSON.parse(new TextDecoder().decode(plano));
+}
+
+/* Punto único de guardado del paquete sensible cifrado. Se llama desde
+   guardarHistorialEnArchivo/guardarNotas/guardarConfiguracion cuando el
+   bloqueo está activo, en vez de (no además de) guardar en texto plano. */
+async function guardarDatosSensiblesCifrados(){
+  if(!bloqueo_activado || !claveCifradoSesion) return;
+  const paquete = { historial: conversation_history, notas, mistralKey: MISTRAL_KEY, morphKey: MORPH_KEY };
+  const cifrado = await cifrarJSON(paquete, claveCifradoSesion);
+  LS.set("yt_datos_cifrados", cifrado);
+  localStorage.removeItem("yt_historial");
+  localStorage.removeItem("yt_notas");
+  localStorage.removeItem("yt_mistral_key");
+  localStorage.removeItem("yt_morph_key");
+}
+
 let MISTRAL_KEY = LS.get("yt_mistral_key","");
 let MORPH_KEY = LS.get("yt_morph_key","");
 /* OpenWeatherMap se agrega como un tercer servicio de la app, pero es un
@@ -748,8 +968,11 @@ const UMBRAL_ERRORES_ROTACION = 3;
 let tokens_config = LS.get("yt_tokens_config", { "Mistral AI":4000, "Morph":4000, FRAGMENT_THRESHOLD_KB:150 });
 let modelos_db = LS.get("yt_modelos_db", {
   "Mistral AI":["mistral-small-latest","mistral-large-latest","mistral-medium-latest","open-mistral-nemo"],
-  "Morph":["morph-v3-large","morph-v3-fast","morph-v2"]
+  "Morph":["morph-v3-large","morph-v3-fast","morph-v2"],
+  "Kimi AI":["kimi","kimi-search"]
 });
+// por si el usuario ya tenía datos guardados de una versión anterior sin Kimi AI
+if(!modelos_db["Kimi AI"] || !modelos_db["Kimi AI"].length) modelos_db["Kimi AI"] = ["kimi","kimi-search"];
 
 let conversation_history = LS.get("yt_historial", []);
 const MAX_HISTORY = 20;
@@ -773,6 +996,33 @@ let voz_cfg = LS.get("yt_voz", { activada:false, velocidad:100, tono:100, voiceU
 let volumen_app = LS.get("yt_volumen_app", 70);
 let sonido_activado = LS.get("yt_sonido_activado", true);
 
+/* --------------------------- Kimi AI (sin clave) ---------------------------
+   Servicio gratuito de terceros que no requiere ninguna clave API. Solo
+   acepta un unico parametro de texto plano ("query"), no un arreglo de
+   mensajes con roles, asi que el historial se aplana en buildPromptPlanoKimi. */
+const KIMI_API_URL = "https://kimi-ai-bj.vercel.app/api";
+
+/* ------------------------------ Pensamiento profundo -----------------------
+   Interruptor en "Ajustes adicionales": cuando esta activo, se le pide a
+   cualquiera de los tres servicios (Mistral AI, Morph o Kimi AI) que razone
+   mas a fondo antes de la respuesta final. */
+let pensamiento_profundo_activado = LS.get("yt_pensamiento_profundo", false);
+function guardarPensamientoProfundo(){ LS.set("yt_pensamiento_profundo", pensamiento_profundo_activado); }
+
+/* --------------------------------- Reproductor de música --------------------
+   A diferencia del plugin original (que usaba APIs no oficiales de terceros
+   para descargar audio de YouTube como MP3), la version web reproduce las
+   canciones con el reproductor OFICIAL embebido de YouTube (IFrame API), sin
+   descargar ni "ripear" nada -- respeta las condiciones de uso de YouTube. */
+let playlist_musica = LS.get("yt_playlist_musica", []); // [{videoId, titulo}]
+let reproducir_siguiente_automatico = LS.get("yt_reproducir_siguiente_auto", true);
+let avisar_conexion_limitada = LS.get("yt_avisar_conexion_limitada", true);
+function guardarPlaylistMusica(){ LS.set("yt_playlist_musica", playlist_musica); }
+function guardarPrefsReproductor(){
+  LS.set("yt_reproducir_siguiente_auto", reproducir_siguiente_automatico);
+  LS.set("yt_avisar_conexion_limitada", avisar_conexion_limitada);
+}
+
 /* --------------------------- Modo de dispositivo --------------------------
    "telefono" o "computadora". Se pregunta la primera vez (antes de la
    política de seguridad, cuyo texto cambia según la respuesta) y se puede
@@ -785,8 +1035,8 @@ function esModoComputadora(){ return modo_dispositivo === "computadora"; }
 function esModoTelefono(){ return modo_dispositivo === "telefono"; }
 
 function guardarConfiguracion(){
-  LS.set("yt_mistral_key", MISTRAL_KEY);
-  LS.set("yt_morph_key", MORPH_KEY);
+  if(bloqueo_activado && claveCifradoSesion){ guardarDatosSensiblesCifrados(); }
+  else { LS.set("yt_mistral_key", MISTRAL_KEY); LS.set("yt_morph_key", MORPH_KEY); }
   LS.set("yt_openweather_key", OPENWEATHER_KEY);
   LS.set("yt_servicio_actual", servicio_actual);
   LS.set("yt_modelo_actual", modelo_actual);
@@ -795,12 +1045,16 @@ function guardarConfiguracion(){
 }
 
 function guardarHistorialEnArchivo(){
-  LS.set("yt_historial", conversation_history);
+  if(bloqueo_activado && claveCifradoSesion){ guardarDatosSensiblesCifrados(); }
+  else { LS.set("yt_historial", conversation_history); }
   LS.set("yt_tema_actual", tema_actual);
   LS.set("yt_contador_temas", contador_temas);
 }
 function guardarComandosUsuario(){ LS.set("yt_comandos", comandos_usuario); }
-function guardarNotas(){ LS.set("yt_notas", notas); }
+function guardarNotas(){
+  if(bloqueo_activado && claveCifradoSesion){ guardarDatosSensiblesCifrados(); }
+  else { LS.set("yt_notas", notas); }
+}
 function guardarClavesAdicionales(){ LS.set("yt_claves_adicionales", claves_adicionales); }
 
 /* --------------------- Claves API adicionales (respaldo) ------------------- */
@@ -888,7 +1142,7 @@ function ctxAudio(){
   return audioCtx;
 }
 const PATRONES_SONIDO = {
-  enviar_mistral:[[520,0.08]], enviar_morph:[[480,0.08]], recibir:[[700,0.09],[900,0.09]],
+  enviar_mistral:[[520,0.08]], enviar_morph:[[480,0.08]], enviar_kimi:[[560,0.06],[620,0.06]], recibir:[[700,0.09],[900,0.09]],
   copiar:[[850,0.06]], dictado_inicio:[[600,0.07],[800,0.07]], dictado_fin:[[800,0.07],[600,0.07]],
   dictado_error:[[220,0.18]], modelos_cargados:[[600,0.06],[750,0.06],[900,0.08]],
   modelos_error:[[300,0.2]], error_solicitud:[[260,0.22]], abrir_barra_lateral:[[500,0.06],[650,0.06]],
@@ -1458,7 +1712,146 @@ function interceptarSugerenciasYRespuestasRapidas(textoRespuesta){
   return { textoLimpio, sugerencias, respuestasRapidas };
 }
 
+/* Usada por cualquier camino de respuesta que llegue completa de una sola vez
+   (sin streaming): fallback de Mistral/Morph y todo Kimi AI. Aplica las
+   mismas intercepciones (notas, sugerencias, comandos contextuales) que ya
+   se aplican en el camino con streaming, para que el comportamiento sea
+   idéntico sin importar qué servicio respondió. */
+function procesarYMostrarRespuestaIACompleta(textoCompleto, modelo_usado){
+  const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(textoCompleto);
+  const textoTrasNota = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
+  const { textoLimpio: textoTrasSugerencias, sugerencias, respuestasRapidas } = interceptarSugerenciasYRespuestasRapidas(textoTrasNota);
+  actualizarListaSugerencias(sugerencias);
+  actualizarRespuestasRapidas(respuestasRapidas);
+  const [textoFinal, accionComando] = interceptarYEjecutarComandoAccion(textoTrasSugerencias);
+  agregarMensajeIA(textoFinal, modelo_usado);
+  if(accionComando) ejecutarComandoContextual(accionComando);
+}
+
 let sugerenciasActuales = [];
+
+/* --------------------------- Comandos contextuales ---------------------------
+   Igual que NOTA_ACCION, pero para acciones del dispositivo/la interfaz que la
+   propia IA decide activar por contexto (sin palabra mágica), tal como hace el
+   plugin original. Formato (única línea, al final de la respuesta, nunca
+   visible para el usuario):
+     [[COMANDO_ACCION:{"tipo":"...", ...parametros}]]
+   Devuelve [textoLimpio, accionObjOrNull]; la acción se ejecuta aparte con
+   ejecutarComandoContextual(), después de mostrar el texto, para no bloquear
+   el renderizado de la respuesta. */
+function interceptarYEjecutarComandoAccion(textoRespuesta){
+  const match = textoRespuesta.match(/\[\[COMANDO_ACCION:(\{[\s\S]*?\})\]\]\s*$/);
+  if(!match) return [textoRespuesta, null];
+  const textoLimpio = trim(textoRespuesta.replace(/\s*\[\[COMANDO_ACCION:[\s\S]*?\]\]\s*$/,""));
+  let accion;
+  try{ accion = JSON.parse(match[1]); }catch(e){ return [textoLimpio, null]; }
+  if(!accion || !accion.tipo) return [textoLimpio, null];
+  return [textoLimpio, accion];
+}
+
+/* Ejecuta la acción ya decidida por la IA. Reutiliza, siempre que se puede,
+   las mismas funciones que ya usan los "Comandos personalizados" manuales
+   (ejecutarAccionComando) y los botones de "Más opciones", para que el
+   comportamiento sea idéntico sin importar cómo se disparó. */
+async function ejecutarComandoContextual(accion){
+  try{
+    switch(accion.tipo){
+      case "encender_linterna": {
+        if(trackLinterna){ mostrarToast("La linterna ya estaba encendida."); return; }
+        mostrarToast(await alternarLinterna());
+        return;
+      }
+      case "apagar_linterna": {
+        if(!trackLinterna){ mostrarToast("La linterna ya estaba apagada."); return; }
+        mostrarToast(await alternarLinterna());
+        return;
+      }
+      case "vibrar": {
+        mostrarToast(activarVibracion());
+        return;
+      }
+      case "buscar_musica": {
+        const consulta = trim(String(accion.consulta||""));
+        if(!consulta) return;
+        mostrarIndicadorEscribiendo("Buscando música...");
+        const resultados = buscarMusicaWeb(consulta);
+        eliminarIndicadorEscribiendo();
+        agregarMensajeResultadosMusica(consulta, resultados);
+        return;
+      }
+      case "abrir_reproductor_musica": {
+        abrirReproductorMusica();
+        return;
+      }
+      case "abrir_configuracion": {
+        abrirConfiguracionPorDestino(String(accion.destino||""));
+        return;
+      }
+      case "activar_pensamiento_profundo": {
+        pensamiento_profundo_activado = true; guardarPensamientoProfundo();
+        const chk = $("#chk-pensamiento-profundo"); if(chk) chk.checked = true;
+        mostrarToast("Pensamiento profundo activado");
+        return;
+      }
+      case "desactivar_pensamiento_profundo": {
+        pensamiento_profundo_activado = false; guardarPensamientoProfundo();
+        const chk = $("#chk-pensamiento-profundo"); if(chk) chk.checked = false;
+        mostrarToast("Pensamiento profundo desactivado");
+        return;
+      }
+      case "abrir_url": {
+        if(accion.url){
+          const url = String(accion.url).startsWith("http") ? String(accion.url) : "https://"+accion.url;
+          window.open(url, "_blank", "noopener");
+        }
+        return;
+      }
+      case "abrir_sitio": {
+        if(accion.nombre) mostrarToast(abrirSitioPorNombre(String(accion.nombre)));
+        return;
+      }
+      // -------- Comandos exclusivos de modo Computadora --------
+      case "copiar_respuesta": if(esModoComputadora()) mostrarToast(await escritorioCopiarUltimaRespuesta()); return;
+      case "pantalla_completa": if(esModoComputadora()) mostrarToast(await escritorioAlternarPantallaCompleta()); return;
+      case "imprimir": if(esModoComputadora()) mostrarToast(escritorioImprimirConversacion()); return;
+      case "buscar_pagina": if(esModoComputadora()) mostrarToast(escritorioBuscarEnPagina()); return;
+      case "zoom_mas": if(esModoComputadora()) mostrarToast(escritorioAjustarZoom(10)); return;
+      case "zoom_menos": if(esModoComputadora()) mostrarToast(escritorioAjustarZoom(-10)); return;
+      case "zoom_normal": if(esModoComputadora()) mostrarToast(escritorioRestablecerZoom()); return;
+      case "notificar": if(esModoComputadora()) mostrarToast(await escritorioPedirPermisoNotificaciones()); return;
+      default: return; // tipo desconocido: se ignora en silencio
+    }
+  }catch(e){ /* una acción contextual que falla nunca debe romper la conversación */ }
+}
+
+/* Lleva al usuario a la pantalla de configuración/gestión indicada por
+   nombre, tal como hace abrir_configuracion en el plugin original. Acepta
+   variantes en minúsculas, con o sin acentos. */
+function abrirConfiguracionPorDestino(destinoCrudo){
+  const d = String(destinoCrudo||"").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,""); // sin acentos
+  const abrir = (id, prep)=>{ if(prep) prep(); abrirDialogo(id); };
+  if(/ajustes adicionales|adicionales/.test(d)){ prepararDialogoAdicionales(); abrir("ov-adicionales"); return; }
+  if(/voz/.test(d)){ prepararDialogoVoz(); abrir("ov-voz"); return; }
+  if(/sonido/.test(d)){ prepararDialogoSonidos(); abrir("ov-sonidos"); return; }
+  if(/traduc|idioma/.test(d)){ abrir("ov-traducir"); return; }
+  if(/nota/.test(d)){ renderListaNotas(); abrir("ov-notas"); return; }
+  if(/gestion de claves|api|clave/.test(d)){
+    $("#in-mistral-key").value = MISTRAL_KEY; $("#in-morph-key").value = MORPH_KEY;
+    $("#in-openweather-key").value = OPENWEATHER_KEY; renderListaClaves(); abrir("ov-api"); return;
+  }
+  if(/reproductor|musica|música|descarga|playlist|recomendacion/.test(d)){ abrirReproductorMusica(); return; }
+  if(/comando/.test(d)){ renderListaComandos(); abrir("ov-comandos"); return; }
+  if(/politica|seguridad/.test(d)){ abrirPoliticaSeguridad(); return; }
+  if(/mi modo|modo telefono|modo computadora/.test(d)){ reabrirDialogoModoDispositivo(); return; }
+  if(/tokens/.test(d)){
+    $("#in-tokens-mistral").value = tokens_config["Mistral AI"]; $("#in-tokens-morph").value = tokens_config["Morph"];
+    abrir("ov-tokens"); return;
+  }
+  // "configuracion"/"ajustes" genérico, o cualquier destino no reconocido: menú principal
+  abrir("ov-menu");
+}
+
 function actualizarListaSugerencias(sugerencias){
   sugerenciasActuales = sugerencias || [];
   const fila = $("#fila-sugerencias");
@@ -2315,6 +2708,8 @@ function promptSistema(){
   system += TEXTO_SYSTEM_PROMPT_ARCHIVOS;
   system += TEXTO_SYSTEM_PROMPT_INTERFAZ;
   system += TEXTO_SYSTEM_PROMPT_TRADUCCION;
+  system += TEXTO_SYSTEM_PROMPT_COMANDOS_CONTEXTUALES;
+  if(pensamiento_profundo_activado) system += TEXTO_PENSAMIENTO_PROFUNDO;
   if(esModoComputadora()){
     system += "\n\nEl usuario está en modo Computadora (así lo eligió él mismo). " + listaComandosEscritorioTexto() +
       " No le ofrezcas funciones exclusivas de teléfono (linterna, vibración, batería real) como si estuvieran disponibles, " +
@@ -2334,9 +2729,16 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   "y también para agregar claves adicionales de respaldo que se activan automáticamente si la clave principal deja de funcionar; ahí mismo " +
   "también se puede poner una clave de OpenWeatherMap, opcional, para que el clima use ese servicio en vez de Open-Meteo), " +
   "'Voz' (para configurar la lectura en voz alta de las respuestas), 'Sonidos' (para activar/desactivar los 18 sonidos " +
-  "originales del plugin, que ya vienen incluidos en el sitio, y ajustar el volumen), 'Info del dispositivo', " +
-  "y 'Cerrar barra lateral'. " +
-  "Arriba del todo también hay un SELECTOR DE SERVICIO (para elegir entre Mistral AI y Morph) " +
+  "originales del plugin, que ya vienen incluidos en el sitio, y ajustar el volumen), 'Comandos personalizados' (frases " +
+  "propias del usuario, siempre literales, que activan una acción exacta al escribirlas tal cual), 'Mis notas', " +
+  "'Reproductor de música' (búsqueda y reproducción con el reproductor oficial embebido de YouTube, sin descargar nada, " +
+  "más una playlist local), 'Ajustes adicionales' (pensamiento profundo, bloqueo con contraseña, e información sobre el " +
+  "comando de activación según el modo), 'Info del dispositivo', 'Mi modo (teléfono/computadora)' y 'Política de " +
+  "seguridad' (texto completo, se puede volver a leer en cualquier momento, documentado por Jonathan/Yonathan, el " +
+  "desarrollador principal). También hay un botón con ícono de engranaje (⚙️) junto a 'Salir', en la cabecera, que " +
+  "abre 'Ajustes adicionales' directamente sin pasar por el menú lateral. " +
+  "Arriba del todo también hay un SELECTOR DE SERVICIO (Mistral AI, Morph, o Kimi AI -- este último no necesita " +
+  "ninguna clave de API, ya funciona directamente) " +
   "y un SELECTOR DE MODELO justo al lado, con un botón para recargar la lista de modelos disponibles. " +
   "En la parte de ABAJO está la CAJA DE TEXTO donde el usuario escribe su mensaje (Enter para enviar, Shift+Enter para salto de línea), " +
   "un botón con ícono de clip (📎) para ADJUNTAR ARCHIVOS (acepta texto, PDF e imágenes, hasta el máximo permitido), " +
@@ -2363,6 +2765,41 @@ const TEXTO_SYSTEM_PROMPT_INTERFAZ =
   "Esta versión web suena con los 18 sonidos ORIGINALES del plugin (no tonos genéricos) desde el primer momento, sin " +
   "necesidad de descargar nada. Si el usuario no escucha nada, dile que vaya al menú lateral → 'Sonidos' y revise que " +
   "'Sonidos de la interfaz activados' esté marcado y que el volumen esté subido ahí mismo.";
+const TEXTO_PENSAMIENTO_PROFUNDO =
+  " El usuario activó 'Pensamiento profundo' en Ajustes adicionales. Antes de dar tu respuesta final, tómate más " +
+  "espacio mental: primero evalúa qué te está pidiendo realmente y qué alcance tiene, considera al menos un enfoque " +
+  "alternativo si el problema lo amerita (sobre todo en código o razonamiento lógico/matemático), y recién después " +
+  "entrega la respuesta final ya depurada. No es necesario que muestres todo ese razonamiento intermedio palabra por " +
+  "palabra al usuario si hace la respuesta demasiado larga; prioriza que la conclusión final sea más precisa y mejor " +
+  "verificada que si no hubieras usado este modo.";
+
+/* --------------------------- Comandos contextuales (system prompt) ---------
+   Igual que con las notas o los archivos generados, esto le enseña a la IA
+   cuándo puede -por su cuenta, sin que el usuario use una palabra exacta-
+   agregar al FINAL de su respuesta (nunca en medio del texto) una única
+   línea con el formato [[COMANDO_ACCION:{"tipo":"...", ...}]], que la
+   interfaz ejecuta y nunca muestra al usuario. */
+const TEXTO_SYSTEM_PROMPT_COMANDOS_CONTEXTUALES =
+  " Además de conversar, puedes activar ciertas acciones de la interfaz POR CONTEXTO, sin que el usuario tenga que " +
+  "usar un botón ni una palabra mágica -- exactamente como decide hacerlo el asistente cuando corre como plugin de " +
+  "accesibilidad en el teléfono del desarrollador. Solo actívalas cuando el pedido del usuario sea razonablemente " +
+  "claro (por ejemplo 'pon música de...', 'busca la canción...', 'vibra', 'abre el reproductor', 'llévame a los " +
+  "ajustes de voz', 'activa el pensamiento profundo'); si hay ambigüedad real, mejor pregunta primero y no actives " +
+  "nada. Para activar una, agrega -SOLO al final de tu respuesta, en su propia línea, nunca en medio del texto y " +
+  "nunca visible en tu explicación al usuario- exactamente una de estas líneas: " +
+  '[[COMANDO_ACCION:{"tipo":"buscar_musica","consulta":"texto a buscar"}]] para buscar una canción o artista. ' +
+  '[[COMANDO_ACCION:{"tipo":"abrir_reproductor_musica"}]] para abrir el reproductor de música. ' +
+  '[[COMANDO_ACCION:{"tipo":"vibrar"}]] para vibrar el dispositivo (solo tiene efecto real en teléfonos compatibles). ' +
+  '[[COMANDO_ACCION:{"tipo":"encender_linterna"}]] o {"tipo":"apagar_linterna"} para la linterna (según disponibilidad del navegador/dispositivo). ' +
+  '[[COMANDO_ACCION:{"tipo":"activar_pensamiento_profundo"}]] o {"tipo":"desactivar_pensamiento_profundo"} para ese interruptor. ' +
+  '[[COMANDO_ACCION:{"tipo":"abrir_configuracion","destino":"..."}]] para llevar al usuario a una pantalla concreta -- destinos válidos: ' +
+  '"ajustes adicionales", "voz", "sonidos", "traductor", "notas", "gestion de claves", "reproductor", "comandos", "politica de seguridad", "mi modo", "tokens". ' +
+  '[[COMANDO_ACCION:{"tipo":"abrir_url","url":"https://..."}]] para abrir un sitio externo que el usuario pidió explícitamente. ' +
+  "En modo Computadora, también puedes usar: " +
+  '{"tipo":"copiar_respuesta"}, {"tipo":"pantalla_completa"}, {"tipo":"imprimir"}, {"tipo":"buscar_pagina"}, ' +
+  '{"tipo":"zoom_mas"}, {"tipo":"zoom_menos"}, {"tipo":"zoom_normal"}, {"tipo":"notificar"}. ' +
+  "Nunca combines dos [[COMANDO_ACCION:...]] en la misma respuesta, nunca la pongas en medio de una explicación, y " +
+  "nunca la menciones ni la describas en el texto visible: es una instrucción interna para la interfaz.";
 const TEXTO_SYSTEM_PROMPT_ARCHIVOS =
   " Cuando el usuario te pida programar o generar contenido largo destinado a ser un ARCHIVO " +
   "(por ejemplo un script, una página HTML, un documento de texto, etc.), y quiera descargarlo, " +
@@ -2676,9 +3113,11 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
   const [textoLimpio, mensajeAccion] = interceptarYEjecutarAccionNota(textoCompleto);
   const textoTrasNota = mensajeAccion ? textoLimpio+"\n\n"+mensajeAccion : textoLimpio;
 
-  const { textoLimpio: textoFinal, sugerencias, respuestasRapidas } = interceptarSugerenciasYRespuestasRapidas(textoTrasNota);
+  const { textoLimpio: textoTrasSugerencias, sugerencias, respuestasRapidas } = interceptarSugerenciasYRespuestasRapidas(textoTrasNota);
   actualizarListaSugerencias(sugerencias);
   actualizarRespuestasRapidas(respuestasRapidas);
+
+  const [textoFinal, accionComando] = interceptarYEjecutarComandoAccion(textoTrasSugerencias);
 
   renderContenidoMensajeIA(textoFinal, layout);
 
@@ -2686,6 +3125,8 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
   if(conversation_history.length > 5000) conversation_history.shift();
   guardarHistorialEnArchivo();
   autoScroll();
+
+  if(accionComando) ejecutarComandoContextual(accionComando);
 
   if(voz_cfg.activada){
     hablarTexto(textoFinal.replace(/```[\s\S]*?```/g,"")
@@ -2701,6 +3142,8 @@ function finalizarMensajeIAStreaming(layout, textoCompleto, modelo_usado){
    Si el servicio no manda streaming o el fetch no lo soporta, cae automáticamente
    a modo no-streaming (una sola respuesta completa), sin romper nada. */
 async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagenes){
+  if(servicio === "Kimi AI") return llamarKimiIA(pregunta, modelo);
+
   const conexion = resolverConexion(servicio, "chat");
   if(conexion.requiereClave && !conexion.KEY){
     agregarMensajeIA(`[Falta la clave de API de ${servicio}. Ábrela desde "Abrir barra lateral → Gestionar APIs".]`, servicio);
@@ -2727,7 +3170,7 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
     }
   }
 
-  mostrarIndicadorEscribiendo();
+  mostrarIndicadorEscribiendo(pensamiento_profundo_activado ? "Pensando profundamente..." : undefined);
   const controller = new AbortController();
   generacionActual.activa = true;
   generacionActual.controller = controller;
@@ -2844,9 +3287,9 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
     const mensaje = datos.choices && datos.choices[0] && datos.choices[0].message;
     if(mensaje && mensaje.content){
       generacionActual.textoAcumulado = (continuacion ? generacionActual.textoAcumulado : "") + String(mensaje.content);
-      agregarMensajeIA(generacionActual.textoAcumulado, modelo);
+      procesarYMostrarRespuestaIACompleta(generacionActual.textoAcumulado, modelo);
     } else if(datos.response){
-      agregarMensajeIA(String(datos.response), modelo);
+      procesarYMostrarRespuestaIACompleta(String(datos.response), modelo);
     } else {
       reproducirSonido("error_solicitud");
       agregarMensajeIA("[Error: respuesta vacía]", modelo);
@@ -2868,6 +3311,56 @@ async function llamarServicioIA(servicio, pregunta, modelo, continuacion, imagen
     reproducirSonido("error_solicitud");
     agregarMensajeIA(`[No se pudo conectar con ${servicio}. Puede ser tu conexión a Internet, o que ${servicio} no permita llamadas directas desde el navegador (CORS). Verifica tu clave y tu conexión.]`, modelo);
   }
+}
+
+/* Kimi AI solo acepta un único parámetro de texto plano ("query"), no un
+   arreglo de mensajes con roles -- así que el historial reciente se aplana
+   a texto, igual que hace buildPromptPlanoKimi en el plugin original. */
+function construirPromptPlanoParaKimi(pregunta){
+  const system = promptSistema();
+  const recientes = conversation_history.slice(-MAX_HISTORY);
+  let texto = system + "\n\n";
+  recientes.forEach(m=>{
+    if(m.role === "user") texto += "Usuario: " + (typeof m.content === "string" ? m.content : "[mensaje con imagen adjunta]") + "\n";
+    else if(m.role === "assistant") texto += "Asistente: " + m.content + "\n";
+  });
+  texto += "Usuario: " + pregunta + "\nAsistente:";
+  return texto;
+}
+
+async function llamarKimiIA(pregunta, modelo){
+  reproducirSonido("enviar_kimi");
+  mostrarIndicadorEscribiendo(pensamiento_profundo_activado ? "Pensando profundamente..." : undefined);
+  ponerBotonEnModoDetener();
+  generacionActual.activa = true;
+  generacionActual.servicio = "Kimi AI";
+  generacionActual.modelo = modelo;
+  try{
+    const promptPlano = construirPromptPlanoParaKimi(pregunta);
+    const url = KIMI_API_URL + "?query=" + encodeURIComponent(promptPlano) + "&model=" + encodeURIComponent(modelo || "kimi");
+    const res = await fetchConReintentos(url, { method:"GET" },
+      { avisar:(intento,total,seg)=> mostrarIndicadorEscribiendo(`Kimi AI está saturado. Reintentando en ${seg}s (intento ${intento}/${total})...`) });
+    eliminarIndicadorEscribiendo();
+    if(!res.ok){
+      reproducirSonido("error_solicitud");
+      agregarMensajeIA(`[Error HTTP ${res.status} al llamar a Kimi AI]`, modelo);
+      ponerBotonEnModoEnviar(); generacionActual.activa = false; return;
+    }
+    const datos = await res.json();
+    const texto = (datos && (datos.response || datos.result || datos.answer)) || (typeof datos === "string" ? datos : null);
+    if(texto){
+      procesarYMostrarRespuestaIACompleta(String(texto), modelo);
+    } else {
+      reproducirSonido("error_solicitud");
+      agregarMensajeIA("[Kimi AI devolvió una respuesta vacía o en un formato inesperado. Es un servicio gratuito de terceros sin garantías -- si sigue fallando, prueba con Mistral AI o Morph.]", modelo);
+    }
+  }catch(e){
+    eliminarIndicadorEscribiendo();
+    reproducirSonido("error_solicitud");
+    agregarMensajeIA("[No se pudo conectar con Kimi AI. Puede ser tu conexión a Internet, o que este servicio gratuito de terceros no permita llamadas directas desde el navegador (CORS) o esté caído temporalmente.]", modelo);
+  }
+  ponerBotonEnModoEnviar();
+  generacionActual.activa = false;
 }
 
 function detenerGeneracionActual(){
@@ -2944,6 +3437,12 @@ async function procesarDocumentoFragmentadoUniversal(servicio, documento, pregun
 async function recargarModelos(){
   reproducirSonido("boton");
   const servicio = $("#sp_servicio").value;
+  if(servicio === "Kimi AI"){
+    modelos_db["Kimi AI"] = ["kimi","kimi-search"];
+    poblarSelectorModelos();
+    mostrarToast("Kimi AI ya tiene una lista fija de modelos (no necesita clave ni recarga).");
+    return;
+  }
   const KEY = servicio==="Morph" ? MORPH_KEY : MISTRAL_KEY;
   const ENDPOINT = servicio==="Morph" ? "https://api.morphllm.com/v1/models" : "https://api.mistral.ai/v1/models";
   if(!KEY){ mostrarToast("Configura primero tu clave de "+servicio); reproducirSonido("modelos_error"); return; }
@@ -3354,11 +3853,47 @@ function reabrirDialogoModoDispositivo(){
 
 function continuarArranqueTrasModo(){
   const yaAceptado = LS.get("yt_consentimiento_aceptado", false);
-  if(yaAceptado){
-    init();
-  } else {
-    configurarDialogoConsentimiento();
-  }
+  if(!yaAceptado){ configurarDialogoConsentimiento(); return; }
+  continuarTrasConsentimiento();
+}
+
+function continuarTrasConsentimiento(){
+  if(bloqueo_activado){ mostrarDesbloqueoYContinuar(); }
+  else { init(); }
+}
+
+function mostrarDesbloqueoYContinuar(){
+  const overlay = $("#ov-desbloqueo");
+  const input = $("#in-desbloquear");
+  const btn = $("#btn-desbloquear");
+  const errorTxt = $("#txt-error-desbloqueo");
+  overlay.hidden = false;
+  input.focus();
+  const intentar = async ()=>{
+    errorTxt.style.display = "none";
+    const pass = input.value;
+    if(!pass) return;
+    try{
+      const saltB64 = LS.get("yt_bloqueo_salt", null);
+      const blob = LS.get("yt_datos_cifrados", null);
+      const clave = await derivarClaveDesdeContrasena(pass, saltB64);
+      if(blob){
+        const paquete = await descifrarJSON(blob, clave);
+        conversation_history = paquete.historial || [];
+        notas = paquete.notas || {};
+        MISTRAL_KEY = paquete.mistralKey || "";
+        MORPH_KEY = paquete.morphKey || "";
+      }
+      claveCifradoSesion = clave;
+      overlay.hidden = true;
+      init();
+    }catch(e){
+      errorTxt.style.display = "block";
+      input.value = ""; input.focus();
+    }
+  };
+  btn.addEventListener("click", intentar);
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter") intentar(); });
 }
 
 function textoPoliticaSeguridad(){
@@ -3379,7 +3914,10 @@ function textoPoliticaSeguridad(){
         "sitio, así que no se descarga nada externo para escucharlos. En modo Computadora, algunas funciones que " +
         "existen en el modo Teléfono (batería, linterna, vibración) no están disponibles porque no aplican a un " +
         "equipo de escritorio; en su lugar se habilitan funciones propias de escritorio como atajos de teclado, " +
-        "pantalla completa e impresión.)"
+        "pantalla completa e impresión. Si querés una capa extra de protección, en 'Ajustes adicionales' podés " +
+        "activar un bloqueo con contraseña que cifra tu historial, tus notas y tus claves de API con AES-GCM antes " +
+        "de guardarlos: sin esa contraseña, ni siquiera alguien con acceso directo a este navegador puede leerlos " +
+        "-- pero si la olvidás, tampoco vos vas a poder recuperarlos.)"
     };
   }
   return {
@@ -3391,9 +3929,165 @@ function textoPoliticaSeguridad(){
       "(En términos técnicos exactos: esta app no usa cookies ni un servidor propio — guarda tu configuración, " +
       "tus claves de API, tu historial y tus notas únicamente en el almacenamiento local de este navegador, en " +
       "este dispositivo. Nada se envía a Yoni Tech ni a Anthropic; solo tú tienes acceso a esos datos. Los sonidos " +
-      "de la interfaz vienen incluidos en este mismo sitio, así que no se descarga nada externo para escucharlos.)"
+      "de la interfaz vienen incluidos en este mismo sitio, así que no se descarga nada externo para escucharlos. " +
+      "Si querés una capa extra de protección, en 'Ajustes adicionales' podés activar un bloqueo con contraseña que " +
+      "cifra tu historial, tus notas y tus claves de API con AES-GCM antes de guardarlos -- pero si la olvidás, esos " +
+      "datos cifrados no se pueden recuperar de ninguna forma.)"
   };
 }
+
+/* Abre la política de seguridad en cualquier momento desde "Ajustes
+   adicionales" o desde un comando contextual, en modo solo lectura (sin la
+   casilla de aceptación obligatoria, esa solo aparece la primera vez). */
+function abrirPoliticaSeguridad(){
+  const textos = textoPoliticaSeguridad();
+  $("#txt-politica-principal").textContent = textos.principal;
+  $("#txt-politica-ayuda").textContent = textos.ayuda;
+  const fecha = LS.get("yt_consentimiento_fecha", null);
+  $("#txt-politica-fecha").textContent = fecha
+    ? ("Aceptada por primera vez el " + new Date(fecha).toLocaleString())
+    : "";
+  abrirDialogo("ov-politica");
+}
+
+function prepararDialogoVoz(){
+  $("#chk-voz-activa").checked = voz_cfg.activada;
+  $("#rango-velocidad").value = voz_cfg.velocidad; $("#lbl-velocidad").textContent = voz_cfg.velocidad;
+  $("#rango-tono").value = voz_cfg.tono; $("#lbl-tono").textContent = voz_cfg.tono;
+  poblarVocesDisponibles();
+}
+
+function prepararDialogoSonidos(){
+  $("#chk-sonido-activado").checked = sonido_activado;
+  $("#rango-volumen-app").value = volumen_app; $("#lbl-volumen-app").textContent = volumen_app;
+  renderListaMisSonidos();
+}
+
+function prepararDialogoAdicionales(){
+  $("#chk-pensamiento-profundo").checked = pensamiento_profundo_activado;
+  $("#chk-bloqueo-activado").checked = bloqueo_activado;
+  $("#fila-nueva-contrasena").hidden = bloqueo_activado; // ya activado: no hace falta pedir contraseña de nuevo acá
+  $("#in-nueva-contrasena").value = "";
+  $("#txt-comando-activacion").textContent = esModoComputadora()
+    ? "Estás en modo Computadora: por ahora no hay un atajo de teclado dedicado para abrir el asistente de un solo golpe (puedes seguir usando los atajos normales de Ajustes → Comandos personalizados). Simplemente escribe o usa el dictado por voz cuando quieras."
+    : "Estás en modo Teléfono: instala esta página en tu pantalla de inicio (menú del navegador → «Agregar a pantalla de inicio» / «Instalar app»). Una vez instalada, mantén presionado el ícono de la app para ver el acceso directo «Pregúntame», que abre el asistente listo para escribir o dictar al instante.";
+}
+
+/* --------------------------------- Reproductor de música -------------------
+   Reproduce con el reproductor OFICIAL embebido de YouTube (IFrame Player
+   API), sin descargar ni "ripear" audio de ningún lado. */
+let ytPlayer = null, ytPlayerListo = false, playlistIndiceActual = -1;
+function cargarApiYouTubeIframeSiHaceFalta(){
+  if(window.YT && window.YT.Player) return;
+  if($("#__yt_iframe_api_script")) return;
+  const tag = document.createElement("script");
+  tag.id = "__yt_iframe_api_script";
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+}
+window.onYouTubeIframeAPIReady = function(){ ytPlayerListo = true; };
+
+function extraerVideoIdDeTexto(texto){
+  const t = trim(String(texto||""));
+  // admite: URL completa, youtu.be, embed, o un ID de 11 caracteres pegado directo
+  const patrones = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/,
+    /^([\w-]{11})$/
+  ];
+  for(const p of patrones){ const m = t.match(p); if(m) return m[1]; }
+  return null;
+}
+
+function abrirReproductorMusica(){
+  cargarApiYouTubeIframeSiHaceFalta();
+  $("#chk-reproducir-siguiente").checked = reproducir_siguiente_automatico;
+  $("#chk-avisar-conexion-limitada").checked = avisar_conexion_limitada;
+  renderizarPlaylistMusica();
+  abrirDialogo("ov-reproductor");
+}
+
+function renderizarPlaylistMusica(){
+  const cont = $("#lista-playlist-musica");
+  cont.innerHTML = "";
+  if(!playlist_musica.length){
+    cont.innerHTML = '<p class="ayuda">Todavía no agregaste nada a tu playlist.</p>';
+    return;
+  }
+  playlist_musica.forEach((item, i)=>{
+    const div = document.createElement("div");
+    div.className = "resultado-musica-item";
+    div.innerHTML = `<span class="info"></span>
+      <span class="acciones">
+        <button type="button" class="btn" style="background:var(--verde)" data-play="${i}">▶</button>
+        <button type="button" class="btn" style="background:var(--rojo)" data-quitar="${i}">Quitar</button>
+      </span>`;
+    div.querySelector(".info").textContent = item.titulo;
+    cont.appendChild(div);
+  });
+  cont.querySelectorAll("[data-play]").forEach(b=> b.addEventListener("click", ()=> reproducirDesdePlaylist(Number(b.dataset.play))));
+  cont.querySelectorAll("[data-quitar]").forEach(b=> b.addEventListener("click", ()=>{
+    playlist_musica.splice(Number(b.dataset.quitar),1);
+    guardarPlaylistMusica(); renderizarPlaylistMusica();
+    mostrarToast("Se quitó de tu playlist.");
+  }));
+}
+
+function avisoConexionLimitadaSiHaceFalta(){
+  if(!avisar_conexion_limitada) return true;
+  const con = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if(con && (con.saveData || /2g|3g/.test(con.effectiveType||""))){
+    return confirm("Parece que tenés una conexión limitada o modo de ahorro de datos activado. ¿Reproducir igual?");
+  }
+  return true;
+}
+
+function reproducirVideoEnMiniPlayer(videoId, titulo){
+  if(!avisoConexionLimitadaSiHaceFalta()) return;
+  $("#mini-player-wrap").classList.add("visible");
+  $("#reproductor-controles").style.display = "flex";
+  $("#reproductor-titulo-actual").textContent = titulo || videoId;
+  if(ytPlayer && ytPlayerListo){
+    ytPlayer.loadVideoById(videoId);
+  } else {
+    const intentar = ()=>{
+      if(window.YT && window.YT.Player){
+        ytPlayer = new YT.Player("mini-player", {
+          videoId,
+          playerVars:{ rel:0 },
+          events:{ onReady:()=>{ ytPlayerListo = true; }, onStateChange: onCambioEstadoReproductor }
+        });
+      } else { setTimeout(intentar, 250); }
+    };
+    intentar();
+  }
+}
+function onCambioEstadoReproductor(e){
+  if(e.data === 0 && reproducir_siguiente_automatico) reproducirSiguienteDePlaylist();
+}
+function reproducirDesdePlaylist(indice){
+  const item = playlist_musica[indice];
+  if(!item) return;
+  playlistIndiceActual = indice;
+  reproducirVideoEnMiniPlayer(item.videoId, item.titulo);
+}
+function reproducirSiguienteDePlaylist(){
+  if(!playlist_musica.length) return;
+  playlistIndiceActual = (playlistIndiceActual + 1) % playlist_musica.length;
+  reproducirDesdePlaylist(playlistIndiceActual);
+}
+function reproducirAnteriorDePlaylist(){
+  if(!playlist_musica.length) return;
+  playlistIndiceActual = (playlistIndiceActual - 1 + playlist_musica.length) % playlist_musica.length;
+  reproducirDesdePlaylist(playlistIndiceActual);
+}
+function agregarAPlaylistMusica(videoId, titulo){
+  if(playlist_musica.some(x=> x.videoId===videoId)){ mostrarToast("Ya estaba en tu playlist."); return; }
+  playlist_musica.push({videoId, titulo});
+  guardarPlaylistMusica();
+  renderizarPlaylistMusica();
+  mostrarToast("Agregada a tu playlist.");
+}
+
 
 function configurarDialogoConsentimiento(){
   const overlay = $("#ov-consentimiento");
@@ -3413,7 +4107,7 @@ function configurarDialogoConsentimiento(){
     LS.set("yt_consentimiento_aceptado", true);
     LS.set("yt_consentimiento_fecha", new Date().toISOString());
     overlay.hidden = true;
-    init();
+    continuarTrasConsentimiento();
   });
 }
 
@@ -3524,19 +4218,8 @@ function init(){
         $("#in-tokens-morph").value = tokens_config["Morph"];
         abrirDialogo("ov-tokens");
       }
-      else if(acc==="configurar-voz"){
-        $("#chk-voz-activa").checked = voz_cfg.activada;
-        $("#rango-velocidad").value = voz_cfg.velocidad; $("#lbl-velocidad").textContent = voz_cfg.velocidad;
-        $("#rango-tono").value = voz_cfg.tono; $("#lbl-tono").textContent = voz_cfg.tono;
-        poblarVocesDisponibles();
-        abrirDialogo("ov-voz");
-      }
-      else if(acc==="configurar-sonidos"){
-        $("#chk-sonido-activado").checked = sonido_activado;
-        $("#rango-volumen-app").value = volumen_app; $("#lbl-volumen-app").textContent = volumen_app;
-        renderListaMisSonidos();
-        abrirDialogo("ov-sonidos");
-      }
+      else if(acc==="configurar-voz"){ prepararDialogoVoz(); abrirDialogo("ov-voz"); }
+      else if(acc==="configurar-sonidos"){ prepararDialogoSonidos(); abrirDialogo("ov-sonidos"); }
       else if(acc==="comandos"){ renderListaComandos(); abrirDialogo("ov-comandos"); }
       else if(acc==="notas"){ renderListaNotas(); abrirDialogo("ov-notas"); }
       else if(acc==="dispositivo"){
@@ -3547,8 +4230,18 @@ function init(){
       else if(acc==="mi-modo"){
         reabrirDialogoModoDispositivo();
       }
+      else if(acc==="reproductor-musica"){ abrirReproductorMusica(); }
+      else if(acc==="ajustes-adicionales"){ prepararDialogoAdicionales(); abrirDialogo("ov-adicionales"); }
+      else if(acc==="politica-seguridad"){ abrirPoliticaSeguridad(); }
     });
   });
+
+  $("#btn_config_rapida").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    prepararDialogoAdicionales();
+    abrirDialogo("ov-adicionales");
+  });
+
 
   // "Más opciones"
   $("#op-adjuntar").addEventListener("click", ()=>{
@@ -3698,6 +4391,95 @@ function init(){
     cerrarDialogo("ov-sonidos"); mostrarToast("Sonidos configurados");
   });
 
+  // ajustes adicionales
+  $("#chk-bloqueo-activado").addEventListener("change", (e)=>{
+    $("#fila-nueva-contrasena").hidden = !e.target.checked;
+  });
+  $("#btn-guardar-adicionales").addEventListener("click", async ()=>{
+    reproducirSonido("boton");
+    pensamiento_profundo_activado = $("#chk-pensamiento-profundo").checked;
+    guardarPensamientoProfundo();
+
+    const activarBloqueo = $("#chk-bloqueo-activado").checked;
+    if(activarBloqueo && !bloqueo_activado){
+      const pass = $("#in-nueva-contrasena").value;
+      if(!pass){ mostrarToast("Escribí una contraseña para activar el bloqueo."); return; }
+      const clave = await derivarClaveDesdeContrasena(pass, null);
+      claveCifradoSesion = clave;
+      bloqueo_activado = true;
+      LS.set("yt_bloqueo_activado", true);
+      await guardarDatosSensiblesCifrados();
+      $("#in-nueva-contrasena").value = "";
+      mostrarToast("Bloqueo con contraseña activado. No lo olvides: no hay forma de recuperarlo.");
+    } else if(!activarBloqueo && bloqueo_activado){
+      // se apaga: volver a guardar todo en texto plano para no perder nada
+      bloqueo_activado = false;
+      LS.set("yt_bloqueo_activado", false);
+      localStorage.removeItem("yt_datos_cifrados");
+      localStorage.removeItem("yt_bloqueo_salt");
+      claveCifradoSesion = null;
+      guardarHistorialEnArchivo(); guardarNotas(); guardarConfiguracion();
+      mostrarToast("Bloqueo con contraseña desactivado.");
+    }
+    cerrarDialogo("ov-adicionales");
+  });
+  $("#btn-abrir-reproductor-desde-adicionales").addEventListener("click", ()=>{
+    reproducirSonido("boton"); cerrarDialogo("ov-adicionales"); abrirReproductorMusica();
+  });
+  $("#btn-abrir-politica-desde-adicionales").addEventListener("click", ()=>{
+    reproducirSonido("boton"); cerrarDialogo("ov-adicionales"); abrirPoliticaSeguridad();
+  });
+
+  // reproductor de música
+  $("#chk-reproducir-siguiente").addEventListener("change", (e)=>{
+    reproducir_siguiente_automatico = e.target.checked; guardarPrefsReproductor();
+  });
+  $("#chk-avisar-conexion-limitada").addEventListener("change", (e)=>{
+    avisar_conexion_limitada = e.target.checked; guardarPrefsReproductor();
+  });
+  $("#btn-reproductor-anterior").addEventListener("click", ()=>{ reproducirSonido("boton"); reproducirAnteriorDePlaylist(); });
+  $("#btn-reproductor-siguiente").addEventListener("click", ()=>{ reproducirSonido("boton"); reproducirSiguienteDePlaylist(); });
+  $("#btn-reproductor-play-pausa").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    if(!ytPlayer) return;
+    const estado = ytPlayer.getPlayerState && ytPlayer.getPlayerState();
+    if(estado === 1) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
+  });
+  $("#btn-reproductor-buscar").addEventListener("click", ()=>{
+    reproducirSonido("boton");
+    const consulta = trim($("#in-reproductor-buscar").value);
+    if(!consulta) return;
+    const resultados = buscarMusicaWeb(consulta);
+    const cont = $("#resultados-busqueda-musica");
+    cont.innerHTML = "";
+    const idDirecto = extraerVideoIdDeTexto(consulta);
+    if(idDirecto){
+      const div = document.createElement("div");
+      div.className = "resultado-musica-item";
+      div.innerHTML = `<span class="info"></span>
+        <span class="acciones">
+          <button type="button" class="btn" style="background:var(--verde)" id="btn-reproducir-directo">▶ Reproducir</button>
+          <button type="button" class="btn" style="background:var(--indigo)" id="btn-agregar-directo">+ Playlist</button>
+        </span>`;
+      div.querySelector(".info").textContent = "Video: " + idDirecto;
+      cont.appendChild(div);
+      $("#btn-reproducir-directo").addEventListener("click", ()=> reproducirVideoEnMiniPlayer(idDirecto, consulta));
+      $("#btn-agregar-directo").addEventListener("click", ()=> agregarAPlaylistMusica(idDirecto, consulta));
+    } else if(resultados && resultados[0] && resultados[0].url){
+      const div = document.createElement("div");
+      div.className = "resultado-musica-item";
+      div.innerHTML = `<span class="info"></span>
+        <span class="acciones"><button type="button" class="btn" style="background:var(--indigo)" id="btn-abrir-en-youtube">Abrir en YouTube</button></span>`;
+      div.querySelector(".info").textContent = "Resultados para: " + consulta;
+      cont.appendChild(div);
+      const p = document.createElement("p");
+      p.className = "ayuda";
+      p.textContent = "Pegá acá el enlace (o el ID) del video que quieras y tocá «Buscar» de nuevo para reproducirlo directo en la app.";
+      cont.appendChild(p);
+      $("#btn-abrir-en-youtube").addEventListener("click", ()=> window.open(resultados[0].url, "_blank", "noopener"));
+    }
+  });
+
   // comandos personalizados
   $("#btn-nuevo-comando").addEventListener("click", ()=>{
     reproducirSonido("boton");
@@ -3760,7 +4542,22 @@ function init(){
     setTimeout(()=>{ $("#in-perfil").value = perfil_usuario; abrirDialogo("ov-perfil"); }, 1200);
   }
 
+  // acceso directo "Pregúntame" (instalado desde la pantalla de inicio en modo Teléfono):
+  // deja el asistente listo para escribir o dictar al instante, sin pasos extra.
+  const params = new URLSearchParams(location.search);
+  if(params.get("activar") === "preguntame"){
+    history.replaceState(null, "", location.pathname);
+    setTimeout(()=>{
+      $("#edit_pregunta").focus();
+      if(esModoTelefono() && !isListening) iniciarDictado();
+    }, 400);
+  }
+
   reproducirSonido("cambio_ventana");
+}
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
 }
 
 })();
